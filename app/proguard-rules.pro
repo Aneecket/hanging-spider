@@ -10,6 +10,12 @@
 -keepnames class com.google.firebase.database.core.PersistentConnection
 -keepnames class com.google.firebase.database.connection.WebSocketConnection
 
+# Firebase KTX reified getValue<T>() uses an anonymous GenericTypeIndicator<T>.
+# R8 must NOT obfuscate/rename the type or its subclasses, or the runtime check
+# "Not a direct subclass of GenericTypeIndicator" throws and crashes on first read.
+-keep class com.google.firebase.database.GenericTypeIndicator { *; }
+-keep class * extends com.google.firebase.database.GenericTypeIndicator { *; }
+
 # Google Sign-In / Credential Manager — sun.misc.Unsafe usage.
 -dontwarn com.google.errorprone.annotations.**
 -dontwarn javax.annotation.**
