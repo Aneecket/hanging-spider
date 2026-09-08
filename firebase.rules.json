@@ -1,0 +1,83 @@
+{
+  "rules": {
+    "users": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || root.child('admins').child(auth.uid).exists())",
+        ".write": "auth != null && auth.uid == $uid",
+        "coins":         { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "doublerUntil":  { ".validate": "newData.isNumber()" },
+        "lastDailyClaimAt": { ".validate": "newData.isNumber()" },
+        "gamesPlayed":   { ".validate": "newData.isNumber() && (!data.exists() || newData.val() >= data.val())" },
+        "gamesWon":      { ".validate": "newData.isNumber() && (!data.exists() || newData.val() >= data.val())" },
+        "email":         { ".validate": "newData.isString()" },
+        "displayName":   { ".validate": "newData.isString()" },
+        "photoUrl":      { ".validate": "newData.isString()" },
+        "uid":           { ".validate": "newData.val() == $uid" },
+        "createdAt":     { ".validate": "newData.isNumber()" },
+        "lastSeenAt":    { ".validate": "newData.isNumber()" },
+        "fcmToken":      { ".validate": "newData.isString()" },
+        "$other":        { ".validate": false }
+      }
+    },
+    "leaderboard": {
+      ".read": "auth != null",
+      ".indexOn": ["coins"],
+      "$uid": {
+        ".write": "auth != null && auth.uid == $uid",
+        "uid":   { ".validate": "newData.val() == $uid" },
+        "name":  { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "coins": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "$other": { ".validate": false }
+      }
+    },
+    "messages": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || root.child('admins').child(auth.uid).exists())",
+        ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+      }
+    },
+    "admins": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).exists()",
+      ".write": false
+    },
+    "coinPacks": { ".read": "auth != null", ".write": false },
+    "purchases": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || root.child('admins').child(auth.uid).exists())",
+        ".write": false
+      }
+    },
+    "purchases_claimed": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).exists()",
+      ".write": false
+    },
+    "prizes": {
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || root.child('admins').child(auth.uid).exists())",
+        ".write": "auth != null && root.child('admins').child(auth.uid).exists()"
+      }
+    },
+    "cashouts": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).exists()",
+      "$uid": {
+        ".read": "auth != null && (auth.uid == $uid || root.child('admins').child(auth.uid).exists())",
+        "$requestId": {
+          ".write": "(auth != null && auth.uid == $uid && !data.exists() && newData.child('status').val() == 'pending') || (auth != null && root.child('admins').child(auth.uid).exists())",
+          "id":           { ".validate": "newData.val() == $requestId" },
+          "rewardId":     { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "displayLabel": { ".validate": "newData.isString() && newData.val().length <= 80" },
+          "coins":        { ".validate": "newData.isNumber() && newData.val() > 0" },
+          "amountInr":    { ".validate": "newData.isNumber() && newData.val() > 0" },
+          "provider":     { ".validate": "newData.isString() && newData.val().matches(/^AMAZON$/)" },
+          "email":        { ".validate": "newData.isString() && newData.val().matches(/.+@.+/)" },
+          "status":       { ".validate": "newData.isString() && newData.val().matches(/^(pending|fulfilled|rejected)$/)" },
+          "createdAt":    { ".validate": "newData.isNumber()" },
+          "fulfilledAt":  { ".validate": "newData.isNumber()" },
+          "giftCode":     { ".validate": "newData.isString() && newData.val().length <= 200" },
+          "adminNote":    { ".validate": "newData.isString() && newData.val().length <= 500" },
+          "$other":       { ".validate": false }
+        }
+      }
+    }
+  }
+}

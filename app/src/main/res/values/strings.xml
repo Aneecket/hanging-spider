@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Hanging Spider</string>
+    <string name="default_notification_channel_id">admin_messages</string>
+    <!-- Google Sign-In web client ID. Fill from your Firebase console: Auth > Google > Web client ID -->
+    <string name="default_web_client_id" translatable="false">868464931104-2g29tc3p52n7f67sd19h8nhf1o37um1i.apps.googleusercontent.com</string>
+</resources>

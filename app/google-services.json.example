@@ -1,0 +1,19 @@
+{
+  "_comment": "Replace this file with the real google-services.json from your Firebase console. Save it as app/google-services.json (without .example). It is git-ignored on purpose.",
+  "project_info": {
+    "project_number": "REPLACE",
+    "project_id": "REPLACE",
+    "storage_bucket": "REPLACE.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "REPLACE",
+        "android_client_info": { "package_name": "com.hangingspider.game" }
+      },
+      "api_key": [{ "current_key": "REPLACE" }],
+      "services": { "appinvite_service": { "other_platform_oauth_client": [] } }
+    }
+  ],
+  "configuration_version": "1"
+}

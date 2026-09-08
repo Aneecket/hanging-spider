@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Hanging Spider · Admin</title>
+  <style>
+    :root {
+      --plum:#1A0B2E; --aub:#2A1444; --gold:#FFD54F; --gold2:#B8863A;
+      --lav:#B8A9E6; --muted:#9C93AE; --ivory:#F5F0E8; --ember:#C22836;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 0; background: linear-gradient(180deg, var(--plum) 0%, #0A0517 100%);
+      color: var(--ivory); font: 14px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      min-height: 100vh;
+    }
+    header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 20px 32px; border-bottom: 1px solid rgba(184,169,230,.15);
+    }
+    header h1 {
+      margin: 0; font: 700 20px/1 "Georgia", "Times New Roman", serif;
+      letter-spacing: 2px; color: var(--gold);
+    }
+    header .user { color: var(--muted); font-size: 12px; }
+    main { max-width: 1100px; margin: 0 auto; padding: 24px 32px 80px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+    .card {
+      background: rgba(42,20,68,.6); border: 1px solid rgba(184,169,230,.10);
+      border-radius: 18px; padding: 20px;
+    }
+    .card h2 {
+      margin: 0 0 12px; font: 600 15px/1 "Georgia", serif; letter-spacing: 2px;
+      color: var(--gold); text-transform: uppercase;
+    }
+    label { display: block; font-size: 12px; color: var(--muted); margin-top: 10px; margin-bottom: 4px; letter-spacing: 1px; text-transform: uppercase;}
+    input, select, textarea {
+      width: 100%; background: rgba(10,5,23,.6); color: var(--ivory);
+      border: 1px solid rgba(184,169,230,.15); border-radius: 10px;
+      padding: 10px 12px; font: inherit; outline: none;
+    }
+    input:focus, select:focus, textarea:focus { border-color: var(--gold2); }
+    textarea { min-height: 84px; resize: vertical; }
+    button {
+      background: linear-gradient(90deg, var(--gold2), var(--gold));
+      color: var(--plum); font-weight: 700; letter-spacing: 1px;
+      border: 0; border-radius: 999px; padding: 10px 18px; cursor: pointer;
+      margin-top: 14px;
+    }
+    button.ghost {
+      background: transparent; color: var(--lav); border: 1px solid rgba(184,169,230,.3);
+    }
+    .row { display: flex; gap: 10px; align-items: center; }
+    .row > * { flex: 1; }
+    .status { margin-top: 10px; font-size: 12px; color: var(--muted); }
+    .status.ok { color: #7cc27c; }
+    .status.err { color: var(--ember); }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid rgba(184,169,230,.08); }
+    th { color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 1px; font-size: 11px; }
+    td.gold { color: var(--gold); font-weight: 600; }
+    #gate { max-width: 420px; margin: 120px auto; padding: 40px; text-align: center; }
+    #gate h1 { font: 700 28px/1 "Georgia", serif; color: var(--gold); letter-spacing: 4px; margin: 0 0 8px; }
+    #gate p { color: var(--muted); margin: 8px 0 24px; }
+  </style>
+</head>
+<body>
+
+<div id="gate" style="display:none">
+  <h1>HANGING SPIDER</h1>
+  <p>Admin console</p>
+  <button id="signInBtn">Sign in with Google</button>
+  <p id="gateStatus" class="status"></p>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <h1>SPIDER · ADMIN</h1>
+    <div class="user">
+      <span id="whoami"></span> ·
+      <a href="#" id="signOutBtn" style="color:var(--lav)">Sign out</a>
+    </div>
+  </header>
+  <main>
+    <div class="grid">
+
+      <div class="card">
+        <h2>Send whisper</h2>
+        <p class="status">Direct message to a single user's in-app inbox. Never broadcast.</p>
+        <label>Target user UID <span style="color:var(--ember)">*</span></label>
+        <input id="msgUid" placeholder="Firebase Auth UID of the recipient" />
+        <label>Title</label>
+        <input id="msgTitle" placeholder="Your gift card is here" />
+        <label>Body</label>
+        <textarea id="msgBody" placeholder="Redemption fulfilled. Gift code: AMZ-XXXX-YYYY"></textarea>
+        <button id="msgSend">Send whisper</button>
+        <p id="msgStatus" class="status"></p>
+      </div>
+
+      <div class="card">
+        <h2>Award coins</h2>
+        <label>User UID</label>
+        <input id="coinsUid" placeholder="Firebase Auth UID" />
+        <label>Amount</label>
+        <input id="coinsAmount" type="number" min="1" placeholder="1000" />
+        <label>Reason</label>
+        <input id="coinsReason" placeholder="Leaderboard #1 weekly prize" />
+        <button id="coinsSend">Grant</button>
+        <p id="coinsStatus" class="status"></p>
+      </div>
+
+      <div class="card">
+        <h2>Log prize payout</h2>
+        <label>User UID</label>
+        <input id="prizeUid" placeholder="Firebase Auth UID" />
+        <label>Type</label>
+        <select id="prizeType">
+          <option value="amazon">Amazon voucher</option>
+          <option value="usdt">USDT payout</option>
+          <option value="btc">BTC payout</option>
+          <option value="custom">Custom</option>
+        </select>
+        <label>Value / code / tx hash</label>
+        <input id="prizeValue" placeholder="AMZ-XXXX-YYYY or 0xtx..." />
+        <label>Internal note</label>
+        <input id="prizeNote" placeholder="For your own records" />
+        <button id="prizeSend">Log</button>
+        <p id="prizeStatus" class="status"></p>
+        <p class="status">Payout is done off-app (email voucher, on-chain send). This log is your audit trail.</p>
+      </div>
+
+      <div class="card">
+        <h2>Live leaderboard</h2>
+        <table>
+          <thead>
+            <tr><th>#</th><th>Name</th><th>UID</th><th style="text-align:right">Coins</th></tr>
+          </thead>
+          <tbody id="lbBody"></tbody>
+        </table>
+      </div>
+
+      <div class="card" style="grid-column: 1 / -1">
+        <h2>Pending cashouts</h2>
+        <p class="status">Buy the gift card on Amazon.in, delivery to the user's email. Paste the confirmation code, click Fulfill.</p>
+        <table>
+          <thead>
+            <tr>
+              <th>Requested</th><th>User</th><th>Reward</th><th>Coins</th>
+              <th>Email</th><th>Gift code</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="cashBody"><tr><td colspan="7" class="status">No pending requests.</td></tr></tbody>
+        </table>
+        <details style="margin-top:14px">
+          <summary style="cursor:pointer;color:var(--muted);font-size:12px">Show fulfilled + rejected history</summary>
+          <table style="margin-top:10px">
+            <thead>
+              <tr><th>When</th><th>User</th><th>Reward</th><th>Status</th><th>Code</th></tr>
+            </thead>
+            <tbody id="cashHistoryBody"></tbody>
+          </table>
+        </details>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+import {
+  getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import {
+  getDatabase, ref, get, onValue, query, orderByChild, limitToLast, update, push, set
+} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAoTEITilFwzmIW4nkXfb4Od-GUuzQ9VO0",
+  authDomain: "hanging-spider.firebaseapp.com",
+  databaseURL: "https://hanging-spider-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "hanging-spider",
+  storageBucket: "hanging-spider.firebasestorage.app",
+  messagingSenderId: "868464931104",
+  appId: "1:868464931104:web:31e16966d6ac8fbe5d6745",
+  measurementId: "G-98XZEFL0JM"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getDatabase(app);
+
+const gate = document.getElementById("gate");
+const appEl = document.getElementById("app");
+const whoami = document.getElementById("whoami");
+const gateStatus = document.getElementById("gateStatus");
+
+document.getElementById("signInBtn").onclick = () =>
+  signInWithPopup(auth, new GoogleAuthProvider()).catch(e => gateStatus.textContent = e.message);
+document.getElementById("signOutBtn").onclick = e => { e.preventDefault(); signOut(auth); };
+
+onAuthStateChanged(auth, async (user) => {
+  if (!user) { gate.style.display = "block"; appEl.style.display = "none"; return; }
+  const adminSnap = await get(ref(db, "admins/" + user.uid));
+  if (!adminSnap.exists()) {
+    gate.style.display = "block"; appEl.style.display = "none";
+    gateStatus.textContent = `Signed in as ${user.email}, but this account is not an admin. Set /admins/${user.uid} = true in the console to grant access.`;
+    return;
+  }
+  gate.style.display = "none"; appEl.style.display = "block";
+  whoami.textContent = user.email;
+  bindLeaderboard();
+  bindCashouts();
+});
+
+function status(el, msg, cls) {
+  el.textContent = msg; el.className = "status " + (cls || "");
+}
+
+async function sendWhisper(uid, title, body) {
+  const msgRef = push(ref(db, `messages/${uid}`));
+  await set(msgRef, { title, body, sender: "Admin", sentAt: Date.now() });
+  return msgRef.key;
+}
+
+document.getElementById("msgSend").onclick = async () => {
+  try {
+    const uid = msgUid.value.trim();
+    if (!uid) throw new Error("Target user UID is required.");
+    if (!msgTitle.value.trim()) throw new Error("Title is required.");
+    const id = await sendWhisper(uid, msgTitle.value, msgBody.value);
+    status(msgStatus, "Whisper delivered to inbox · id " + id, "ok");
+    msgTitle.value = ""; msgBody.value = "";
+  } catch (e) { status(msgStatus, e.message, "err"); }
+};
+
+document.getElementById("coinsSend").onclick = async () => {
+  try {
+    const uid = coinsUid.value.trim();
+    const amount = Number(coinsAmount.value);
+    if (!uid || !Number.isFinite(amount) || amount <= 0) throw new Error("UID and positive amount required.");
+    const [userSnap, nameSnap] = await Promise.all([
+      get(ref(db, `users/${uid}/coins`)),
+      get(ref(db, `users/${uid}/displayName`))
+    ]);
+    const newCoins = (userSnap.val() || 0) + amount;
+    await update(ref(db), {
+      [`users/${uid}/coins`]: newCoins,
+      [`leaderboard/${uid}/coins`]: newCoins,
+      [`leaderboard/${uid}/uid`]: uid,
+      [`leaderboard/${uid}/name`]: (nameSnap.val() || "Adventurer")
+    });
+    status(coinsStatus, "Granted. New balance: " + newCoins, "ok");
+  } catch (e) { status(coinsStatus, e.message, "err"); }
+};
+
+document.getElementById("prizeSend").onclick = async () => {
+  try {
+    const uid = prizeUid.value.trim();
+    if (!uid || !prizeValue.value.trim()) throw new Error("UID and value required.");
+    const prizeRef = push(ref(db, `prizes/${uid}`));
+    await set(prizeRef, {
+      type: prizeType.value, value: prizeValue.value, note: prizeNote.value,
+      grantedBy: auth.currentUser.uid, at: Date.now()
+    });
+    status(prizeStatus, "Logged · id " + prizeRef.key, "ok");
+  } catch (e) { status(prizeStatus, e.message, "err"); }
+};
+
+function bindLeaderboard() {
+  const q = query(ref(db, "leaderboard"), orderByChild("coins"), limitToLast(20));
+  onValue(q, (snap) => {
+    const rows = [];
+    snap.forEach(c => rows.push(c.val()));
+    rows.sort((a,b) => b.coins - a.coins);
+    lbBody.innerHTML = rows.map((r, i) => `
+      <tr>
+        <td>#${i+1}</td>
+        <td>${escape(r.name || "-")}</td>
+        <td style="font-family:monospace;color:var(--muted);font-size:11px">${escape(r.uid || "-")}</td>
+        <td class="gold" style="text-align:right">${r.coins}</td>
+      </tr>`).join("");
+  });
+}
+
+function escape(s) {
+  return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+}
+
+function bindCashouts() {
+  onValue(ref(db, "cashouts"), (snap) => {
+    const pending = [], history = [];
+    snap.forEach(userNode => {
+      const uid = userNode.key;
+      userNode.forEach(reqNode => {
+        const r = { uid, ...reqNode.val() };
+        (r.status === "pending" ? pending : history).push(r);
+      });
+    });
+    pending.sort((a,b) => a.createdAt - b.createdAt);
+    history.sort((a,b) => (b.fulfilledAt || b.createdAt) - (a.fulfilledAt || a.createdAt));
+    renderPending(pending);
+    renderHistory(history);
+  });
+}
+
+function renderPending(rows) {
+  if (rows.length === 0) {
+    cashBody.innerHTML = `<tr><td colspan="7" class="status">No pending requests.</td></tr>`;
+    return;
+  }
+  cashBody.innerHTML = rows.map(r => `
+    <tr data-uid="${escape(r.uid)}" data-id="${escape(r.id)}">
+      <td>${escape(new Date(r.createdAt).toLocaleString())}</td>
+      <td style="font-family:monospace;font-size:11px">${escape(r.uid.slice(0,8))}…</td>
+      <td class="gold">${escape(r.displayLabel)}</td>
+      <td>${r.coins}</td>
+      <td style="font-size:12px">${escape(r.email)}</td>
+      <td><input class="giftCodeInput" placeholder="AMZ-XXXX-YYYY" style="min-width:140px" /></td>
+      <td>
+        <button class="fulfillBtn" style="margin:0">Fulfill</button>
+        <button class="ghost rejectBtn" style="margin:2px 0 0">Reject</button>
+      </td>
+    </tr>`).join("");
+  cashBody.querySelectorAll(".fulfillBtn").forEach(b => b.onclick = onFulfill);
+  cashBody.querySelectorAll(".rejectBtn").forEach(b => b.onclick = onReject);
+}
+
+function renderHistory(rows) {
+  cashHistoryBody.innerHTML = rows.slice(0, 50).map(r => `
+    <tr>
+      <td>${escape(new Date(r.fulfilledAt || r.createdAt).toLocaleString())}</td>
+      <td style="font-family:monospace;font-size:11px">${escape(r.uid.slice(0,8))}…</td>
+      <td>${escape(r.displayLabel)}</td>
+      <td class="${r.status === 'fulfilled' ? 'gold' : ''}" style="text-transform:uppercase;font-size:11px;letter-spacing:1px">${escape(r.status)}</td>
+      <td style="font-family:monospace;font-size:11px">${escape(r.giftCode || "-")}</td>
+    </tr>`).join("");
+}
+
+async function onFulfill(e) {
+  const tr = e.target.closest("tr");
+  const uid = tr.dataset.uid, id = tr.dataset.id;
+  const code = tr.querySelector(".giftCodeInput").value.trim();
+  if (!code) { alert("Paste the Amazon gift code before fulfilling."); return; }
+  try {
+    // Load the request to grab the display label for the whisper.
+    const reqSnap = await get(ref(db, `cashouts/${uid}/${id}`));
+    const req = reqSnap.val() || {};
+    // Mark fulfilled, then push a personal whisper to the user's inbox.
+    await update(ref(db, `cashouts/${uid}/${id}`), {
+      status: "fulfilled",
+      giftCode: code,
+      fulfilledAt: Date.now()
+    });
+    await sendWhisper(
+      uid,
+      `Your ${req.displayLabel || "gift card"} is here`,
+      `Redemption fulfilled. Gift code: ${code}\n\nRedeem at amazon.in/gc/redeem`
+    );
+  } catch (err) { alert("Fulfill failed: " + err.message); }
+}
+
+async function onReject(e) {
+  const tr = e.target.closest("tr");
+  const uid = tr.dataset.uid, id = tr.dataset.id;
+  const note = prompt("Reason for rejecting (optional):") || "";
+  if (!confirm("Reject this cashout and REFUND the coins to the user?")) return;
+  try {
+    // Read coins currently owed and current user balance, then multi-path write:
+    // status → rejected + refund coins → user.coins + leaderboard.coins
+    const [reqSnap, userSnap] = await Promise.all([
+      get(ref(db, `cashouts/${uid}/${id}`)),
+      get(ref(db, `users/${uid}/coins`))
+    ]);
+    const owed = reqSnap.val()?.coins || 0;
+    const bal = userSnap.val() || 0;
+    const refunded = bal + owed;
+    await update(ref(db), {
+      [`cashouts/${uid}/${id}/status`]: "rejected",
+      [`cashouts/${uid}/${id}/adminNote`]: note,
+      [`cashouts/${uid}/${id}/fulfilledAt`]: Date.now(),
+      [`users/${uid}/coins`]: refunded,
+      [`leaderboard/${uid}/coins`]: refunded
+    });
+    await sendWhisper(
+      uid,
+      `Your ${reqSnap.val()?.displayLabel || "cashout"} could not be fulfilled`,
+      `Your coins have been refunded.${note ? `\n\nReason: ${note}` : ""}`
+    );
+  } catch (err) { alert("Reject failed: " + err.message); }
+}
+</script>
+</body>
+</html>
