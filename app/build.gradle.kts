@@ -10,14 +10,14 @@ plugins {
 
 android {
     namespace = "com.hangingspider.game"
-    compileSdk = 34
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.hangingspider.game"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 3
-        versionName = "0.2.1"
+        targetSdk = 36
+        versionCode = 6
+        versionName = "0.3.0"
         vectorDrawables { useSupportLibrary = true }
     }
 

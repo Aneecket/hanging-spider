@@ -1,6 +1,7 @@
 package com.hangingspider.game.data.repo
 
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.database.DataSnapshot
@@ -19,10 +20,54 @@ class UserRepository {
 
     val currentUser: FirebaseUser? get() = auth.currentUser
 
-    suspend fun signInWithGoogleIdToken(idToken: String): FirebaseUser {
-        val cred = GoogleAuthProvider.getCredential(idToken, null)
-        val result = auth.signInWithCredential(cred).await()
+    suspend fun signInAnonymously(): FirebaseUser {
+        val result = auth.signInAnonymously().await()
         val user = result.user ?: error("Firebase returned null user")
+        ensureProfile(user)
+        return user
+    }
+
+    /**
+     * Links the current anonymous user to a Google account (first sync on this device),
+     * or signs in as the Google-linked user if that Google account is already linked to
+     * another Firebase UID (typical when the same user syncs on a second device). In the
+     * collision case, any coins accrued on the abandoned anonymous session are added to
+     * the signed-in account so the player never sees their balance drop after syncing.
+     */
+    suspend fun linkOrSignInWithGoogle(idToken: String): FirebaseUser {
+        val cred = GoogleAuthProvider.getCredential(idToken, null)
+        val prior = auth.currentUser
+        val priorUid = prior?.uid
+        val priorWasAnonymous = prior?.isAnonymous == true
+        val priorCoins: Long = if (priorWasAnonymous && priorUid != null) {
+            userRef(priorUid).child("coins").get().await().getValue(Long::class.java) ?: 0L
+        } else 0L
+
+        val user = try {
+            if (priorWasAnonymous && prior != null) {
+                prior.linkWithCredential(cred).await().user
+            } else {
+                auth.signInWithCredential(cred).await().user
+            }
+        } catch (_: FirebaseAuthUserCollisionException) {
+            auth.signInWithCredential(cred).await().user
+        } ?: error("Firebase returned null user")
+
+        if (priorUid != null && priorUid != user.uid) {
+            if (priorCoins > 0) {
+                val existing = userRef(user.uid).child("coins").get().await()
+                    .getValue(Long::class.java) ?: 0L
+                userRef(user.uid).child("coins").setValue(existing + priorCoins).await()
+            }
+            runCatching {
+                val purge = mapOf<String, Any?>(
+                    "users/$priorUid" to null,
+                    "leaderboard/$priorUid" to null
+                )
+                db.reference.updateChildren(purge).await()
+            }
+        }
+
         ensureProfile(user)
         return user
     }
@@ -68,9 +113,12 @@ class UserRepository {
         val snap = ref.get().await()
         if (!snap.exists()) {
             val now = System.currentTimeMillis()
+            val displayName = user.displayName.orEmpty().ifBlank {
+                "Weaver_${user.uid.take(4).uppercase()}"
+            }
             val profile = UserProfile(
                 uid = user.uid,
-                displayName = user.displayName.orEmpty(),
+                displayName = displayName,
                 email = user.email.orEmpty(),
                 photoUrl = user.photoUrl?.toString().orEmpty(),
                 coins = 0,

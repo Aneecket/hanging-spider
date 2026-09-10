@@ -16,7 +16,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -28,7 +27,6 @@ import com.hangingspider.game.viewmodel.AuthViewModel
 @Composable
 fun AuthScreen(authVm: AuthViewModel, onSignedIn: (String) -> Unit) {
     val state by authVm.state.collectAsStateWithLifecycle()
-    val context = LocalContext.current
 
     LaunchedEffect(state.uid) { state.uid?.let(onSignedIn) }
 
@@ -88,30 +86,29 @@ fun AuthScreen(authVm: AuthViewModel, onSignedIn: (String) -> Unit) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.fillMaxWidth()
             ) {
-                if (state.loading) {
-                    CircularProgressIndicator(color = AppColors.Signal)
-                } else {
-                    SignInPill(onClick = { authVm.signInWithGoogle(context) })
-                }
-                Spacer(Modifier.height(14.dp))
-                Text(
-                    "Sync your coins across devices",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = AppColors.MutedText
-                )
-                state.error?.let {
+                val err = state.error
+                if (err != null) {
+                    SignInPill(onClick = { authVm.signIn() })
                     Spacer(Modifier.height(12.dp))
                     Surface(
                         color = AppColors.Signal.copy(alpha = 0.14f),
                         shape = RoundedCornerShape(12.dp)
                     ) {
                         Text(
-                            it,
+                            err,
                             color = AppColors.Rose,
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
                         )
                     }
+                } else {
+                    CircularProgressIndicator(color = AppColors.Signal)
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        "Preparing your hunt...",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = AppColors.MutedText
+                    )
                 }
                 Spacer(Modifier.height(8.dp))
             }
@@ -136,13 +133,8 @@ private fun SignInPill(onClick: () -> Unit) {
             onClick = onClick,
             modifier = Modifier.fillMaxSize()
         ) {
-            Box(
-                modifier = Modifier.size(22.dp).background(Color.White, CircleShape),
-                contentAlignment = Alignment.Center
-            ) { Text("G", color = AppColors.Coal, fontSize = 14.sp) }
-            Spacer(Modifier.width(12.dp))
             Text(
-                "Sign in with Google",
+                "Retry",
                 color = AppColors.Ivory,
                 style = MaterialTheme.typography.labelLarge.copy(fontSize = 16.sp)
             )

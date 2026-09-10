@@ -21,11 +21,36 @@ class AuthViewModel(
     val state: StateFlow<AuthState> = _state
 
     init {
-        _state.value = AuthState(uid = repo.currentUser?.uid)
+        val current = repo.currentUser
+        if (current != null) {
+            _state.value = AuthState(
+                uid = current.uid,
+                email = current.email,
+                isAnonymous = current.isAnonymous
+            )
+        } else {
+            signIn()
+        }
     }
 
-    fun signInWithGoogle(context: Context) {
+    fun signIn() {
         _state.value = _state.value.copy(loading = true, error = null)
+        viewModelScope.launch {
+            try {
+                val user = repo.signInAnonymously()
+                _state.value = AuthState(
+                    uid = user.uid,
+                    email = user.email,
+                    isAnonymous = user.isAnonymous
+                )
+            } catch (t: Throwable) {
+                _state.value = _state.value.copy(loading = false, error = t.message ?: "Sign-in failed")
+            }
+        }
+    }
+
+    fun linkWithGoogle(context: Context) {
+        _state.value = _state.value.copy(linking = true, linkError = null)
         viewModelScope.launch {
             try {
                 val option = GetSignInWithGoogleOption
@@ -33,12 +58,15 @@ class AuthViewModel(
                     .build()
                 val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
                 val response = CredentialManager.create(context).getCredential(context, request)
-                val cred = response.credential
-                val idToken = GoogleIdTokenCredential.createFrom(cred.data).idToken
-                val user = repo.signInWithGoogleIdToken(idToken)
-                _state.value = AuthState(uid = user.uid)
+                val idToken = GoogleIdTokenCredential.createFrom(response.credential.data).idToken
+                val user = repo.linkOrSignInWithGoogle(idToken)
+                _state.value = AuthState(
+                    uid = user.uid,
+                    email = user.email,
+                    isAnonymous = user.isAnonymous
+                )
             } catch (t: Throwable) {
-                _state.value = _state.value.copy(loading = false, error = t.message ?: "Sign-in failed")
+                _state.value = _state.value.copy(linking = false, linkError = t.message ?: "Sync failed")
             }
         }
     }
@@ -48,10 +76,10 @@ class AuthViewModel(
         _state.value = AuthState()
     }
 
-    fun deleteAccount(onDone: (com.hangingspider.game.data.repo.UserRepository.DeleteResult) -> Unit) {
+    fun deleteAccount(onDone: (UserRepository.DeleteResult) -> Unit) {
         viewModelScope.launch {
             val result = repo.deleteAccount()
-            if (result is com.hangingspider.game.data.repo.UserRepository.DeleteResult.Ok) {
+            if (result is UserRepository.DeleteResult.Ok) {
                 _state.value = AuthState()
             }
             onDone(result)
@@ -61,6 +89,10 @@ class AuthViewModel(
 
 data class AuthState(
     val uid: String? = null,
+    val email: String? = null,
+    val isAnonymous: Boolean = true,
     val loading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val linking: Boolean = false,
+    val linkError: String? = null
 )

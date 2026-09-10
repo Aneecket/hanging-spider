@@ -11,9 +11,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hangingspider.game.data.repo.UserRepository
 import com.hangingspider.game.ui.theme.AppColors
 import com.hangingspider.game.ui.theme.AppGradients
@@ -23,13 +25,17 @@ import com.hangingspider.game.viewmodel.AuthViewModel
 @Composable
 fun SettingsScreen(
     authVm: AuthViewModel,
-    userEmail: String,
     onExit: () -> Unit,
     onOpenPrivacy: () -> Unit,
     onOpenTerms: () -> Unit
 ) {
+    val authState by authVm.state.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var confirmDelete by remember { mutableStateOf(false) }
     var status by remember { mutableStateOf<String?>(null) }
+
+    val syncedEmail = authState.email.takeIf { !authState.isAnonymous && !it.isNullOrBlank() }
+    val bannerLabel = syncedEmail ?: "Guest hunter"
 
     Box(
         modifier = Modifier
@@ -62,9 +68,39 @@ fun SettingsScreen(
                     .fillMaxSize()
                     .padding(horizontal = 20.dp)
             ) {
-                AccountBanner(email = userEmail)
+                AccountBanner(email = bannerLabel)
                 Spacer(Modifier.height(24.dp))
 
+                SectionLabel("Sync")
+                if (syncedEmail != null) {
+                    SettingsRow(
+                        title = "Synced with Google",
+                        subtitle = syncedEmail,
+                        onClick = {}
+                    )
+                } else {
+                    SettingsRow(
+                        title = if (authState.linking) "Opening Google…" else "Sync with Google",
+                        subtitle = "Save your coins to your Google account so you can play on another device",
+                        onClick = { if (!authState.linking) authVm.linkWithGoogle(context) }
+                    )
+                    authState.linkError?.let {
+                        Spacer(Modifier.height(8.dp))
+                        Surface(
+                            color = AppColors.Signal.copy(alpha = 0.14f),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                it,
+                                color = AppColors.Rose,
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(20.dp))
                 SectionLabel("Legal")
                 SettingsRow(
                     title = "Privacy Policy",

@@ -132,7 +132,6 @@ fun AppNav() {
             composable(Routes.SETTINGS) {
                 SettingsScreen(
                     authVm = authVm,
-                    userEmail = FirebaseAuth.getInstance().currentUser?.email.orEmpty(),
                     onExit = { nav.popBackStack() },
                     onOpenPrivacy = { nav.navigate(Routes.PRIVACY) },
                     onOpenTerms = { nav.navigate(Routes.TERMS) }
