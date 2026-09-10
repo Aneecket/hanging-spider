@@ -41,6 +41,10 @@
       ".write": false
     },
     "coinPacks": { ".read": "auth != null", ".write": false },
+    "config": {
+      ".read": true,
+      ".write": false
+    },
     "purchases": {
       "$uid": {
         ".read": "auth != null && (auth.uid == $uid || root.child('admins').child(auth.uid).exists())",

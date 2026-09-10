@@ -13,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.core.content.ContextCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import com.hangingspider.game.ui.nav.AppNav
+import com.hangingspider.game.ui.nav.ForceUpdateGate
 import com.hangingspider.game.ui.theme.HangingSpiderTheme
 
 class MainActivity : ComponentActivity() {
@@ -29,7 +30,7 @@ class MainActivity : ComponentActivity() {
         )
         super.onCreate(savedInstanceState)
         setContent {
-            HangingSpiderTheme { AppNav() }
+            HangingSpiderTheme { ForceUpdateGate { AppNav() } }
         }
         maybeRequestNotifPerm()
     }

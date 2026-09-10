@@ -16,8 +16,8 @@ android {
         applicationId = "com.hangingspider.game"
         minSdk = 24
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.3.2"
+        versionCode = 9
+        versionName = "0.3.3"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -59,7 +59,10 @@ android {
     }
     kotlinOptions { jvmTarget = "17" }
 
-    buildFeatures { compose = true }
+    buildFeatures {
+        compose = true
+        buildConfig = true
+    }
     packaging {
         resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" }
     }
