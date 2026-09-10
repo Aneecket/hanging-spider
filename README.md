@@ -2,6 +2,8 @@
 
 Hangman-with-spider Android game. Kotlin + Jetpack Compose. Firebase Auth + Realtime DB backend. AdMob monetization. USDT coin purchases via Coinbase Commerce webhook. Admin console for messaging and prize fulfillment.
 
+**Operators — read [docs/OPERATIONS.md](docs/OPERATIONS.md) first.** Force-update procedure, current release state, gameplay tuning, hosting URLs, and Play Store gotchas live there.
+
 ## Status
 
 - **Phase 1 — done.** Google Sign-In, RTDB profile sync, coin economy, hangman gameplay.
