@@ -25,11 +25,12 @@ class CoinViewModel(
 
     companion object {
         const val COINS_PER_TICK = 1L
-        const val TICK_MS = 1500L
-        const val SYNC_INTERVAL_MS = 15_000L
+        const val TICK_MS = 10_000L // 1 coin per 10 seconds
+        const val SYNC_INTERVAL_MS = 30_000L
         const val DAILY_REWARD = 500L
         const val WIN_REWARD = 200L
         const val WATCH_AD_DOUBLER_MS = 10L * 60L * 1000L // 10 min
+        const val GAMES_PER_INTERSTITIAL = 3
     }
 
     private val _profile = MutableStateFlow<UserProfile?>(null)
@@ -40,6 +41,21 @@ class CoinViewModel(
 
     private var accrualJob: Job? = null
     private var pendingAccrual = 0L
+    private var gamesSinceInterstitial = 0
+
+    /**
+     * Called from the game screen when a round finishes (win or loss). Returns true
+     * every [GAMES_PER_INTERSTITIAL] calls so the caller shows an interstitial ad
+     * and skips it otherwise. Counter lives only in memory — resetting on process
+     * death is intentional so a churn of relaunches doesn't stack ads.
+     */
+    fun onGameEndedShouldShowAd(): Boolean {
+        gamesSinceInterstitial++
+        return if (gamesSinceInterstitial >= GAMES_PER_INTERSTITIAL) {
+            gamesSinceInterstitial = 0
+            true
+        } else false
+    }
 
     init {
         viewModelScope.launch {

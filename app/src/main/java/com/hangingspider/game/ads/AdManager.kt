@@ -66,11 +66,18 @@ class AdManager(private val context: Context) {
         ad.show(activity, OnUserEarnedRewardListener { onEarned() })
     }
 
-    fun showInterstitial(activity: Activity) {
+    fun showInterstitial(activity: Activity, onDismissed: () -> Unit = {}) {
         val ad = interstitial ?: return
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
-            override fun onAdDismissedFullScreenContent() { interstitial = null; preloadInterstitial() }
-            override fun onAdFailedToShowFullScreenContent(error: AdError) { interstitial = null }
+            override fun onAdDismissedFullScreenContent() {
+                interstitial = null
+                preloadInterstitial()
+                onDismissed()
+            }
+            override fun onAdFailedToShowFullScreenContent(error: AdError) {
+                interstitial = null
+                onDismissed()
+            }
         }
         ad.show(activity)
     }
