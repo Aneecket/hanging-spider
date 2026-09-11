@@ -8,12 +8,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.delay
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -53,8 +50,6 @@ object Routes {
     const val TERMS = "terms"
 }
 
-private const val IDLE_INTERSTITIAL_MS = 3L * 60L * 1000L // 3 minutes without input
-
 @Composable
 fun AppNav() {
     val nav = rememberNavController()
@@ -68,11 +63,6 @@ fun AppNav() {
         adManager.preloadInterstitial()
     }
 
-    // Idle-interstitial gating: any pointer event resets [lastInteractionAt]. A
-    // background poller shows an interstitial once no interaction has landed for
-    // [IDLE_INTERSTITIAL_MS], then pauses idle accrual until the ad is dismissed.
-    var lastInteractionAt by remember { mutableLongStateOf(System.currentTimeMillis()) }
-
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route ?: Routes.AUTH
     val showBottomBar = currentRoute in setOf(Routes.HOME, Routes.LEADERBOARD, Routes.MESSAGES, Routes.BUY)
@@ -85,36 +75,7 @@ fun AppNav() {
     }
     coinVm?.let { BindForegroundAccrual(it) }
 
-    // Route changes count as interaction too — reset on every backstack update.
-    LaunchedEffect(currentRoute) { lastInteractionAt = System.currentTimeMillis() }
-
-    // Poll idle-time every 30s and show an interstitial when idle >= 3 min.
-    LaunchedEffect(state.uid, coinVm) {
-        val vm = coinVm ?: return@LaunchedEffect
-        while (state.uid != null) {
-            delay(30_000L)
-            val idle = System.currentTimeMillis() - lastInteractionAt
-            if (idle >= IDLE_INTERSTITIAL_MS) {
-                val act = context as? android.app.Activity ?: continue
-                vm.stopIdleAccrual()
-                adManager.showInterstitial(act, onDismissed = { vm.startIdleAccrual() })
-                lastInteractionAt = System.currentTimeMillis()
-            }
-        }
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .pointerInput(Unit) {
-                awaitPointerEventScope {
-                    while (true) {
-                        awaitPointerEvent(PointerEventPass.Initial)
-                        lastInteractionAt = System.currentTimeMillis()
-                    }
-                }
-            }
-    ) {
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize()) {
         NavHost(
             navController = nav,
