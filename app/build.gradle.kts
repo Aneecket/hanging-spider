@@ -16,8 +16,8 @@ android {
         applicationId = "com.hangingspider.game"
         minSdk = 24
         targetSdk = 36
-        versionCode = 11
-        versionName = "0.3.5"
+        versionCode = 12
+        versionName = "0.3.6"
         vectorDrawables { useSupportLibrary = true }
     }
 

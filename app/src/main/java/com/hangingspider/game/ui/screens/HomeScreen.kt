@@ -378,9 +378,9 @@ private fun ActionChips(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
     ) {
-        ActionChip(label = "Daily",   accent = AppColors.GoldBright, icon = "☀",  onClick = onDaily)
-        ActionChip(label = "Bounty",  accent = AppColors.Signal,     icon = "✦",  onClick = onBounty)
-        ActionChip(label = "Cash",    accent = AppColors.GoldBright, icon = "◈",  onClick = onCashout)
+        ActionChip(label = "Daily rewards", accent = AppColors.GoldBright, icon = "☀",  onClick = onDaily)
+        ActionChip(label = "2x rewards",    accent = AppColors.Signal,     icon = "✦",  onClick = onBounty)
+        ActionChip(label = "Cash out",      accent = AppColors.GoldBright, icon = "◈",  onClick = onCashout)
     }
 }
 
