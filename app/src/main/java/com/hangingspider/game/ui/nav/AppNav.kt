@@ -153,12 +153,25 @@ fun AppNav() {
                 GameScreen(
                     coinVm = vm,
                     onExit = {
+                        vm.resetPlayAgainStreak()
                         val act = context as? android.app.Activity
-                        if (act != null && vm.onGameEndedShouldShowAd()) {
+                        if (act != null) {
                             vm.stopIdleAccrual()
                             adManager.showInterstitial(act, onDismissed = { vm.startIdleAccrual() })
                         }
                         nav.popBackStack()
+                    },
+                    onReplay = { proceed ->
+                        val act = context as? android.app.Activity
+                        if (act != null && vm.onPlayAgainShouldShowAd()) {
+                            vm.stopIdleAccrual()
+                            adManager.showInterstitial(act, onDismissed = {
+                                vm.startIdleAccrual()
+                                proceed()
+                            })
+                        } else {
+                            proceed()
+                        }
                     }
                 )
             }

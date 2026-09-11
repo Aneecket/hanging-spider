@@ -12,16 +12,25 @@ import com.google.android.gms.ads.interstitial.InterstitialAd
 import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback
 import com.google.android.gms.ads.rewarded.RewardedAd
 import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback
+import com.hangingspider.game.BuildConfig
 
 /**
  * Ad unit IDs.
  *
- * Test IDs from https://developers.google.com/admob/android/test-ads — safe to use
- * during development. Replace with your production units before release.
+ * Debug builds use Google's public test IDs so ads reliably fill during
+ * development (production IDs on a fresh AdMob account often return
+ * "no fill"). Release builds use the real publisher units.
+ *
+ * Test IDs: https://developers.google.com/admob/android/test-ads
  */
 object AdUnits {
-    const val REWARDED = "ca-app-pub-5452237321152820/7209378898"
-    const val INTERSTITIAL = "ca-app-pub-5452237321152820/2723338973"
+    private const val PROD_REWARDED = "ca-app-pub-5452237321152820/7209378898"
+    private const val PROD_INTERSTITIAL = "ca-app-pub-5452237321152820/2723338973"
+    private const val TEST_REWARDED = "ca-app-pub-3940256099942544/5224354917"
+    private const val TEST_INTERSTITIAL = "ca-app-pub-3940256099942544/1033173712"
+
+    val REWARDED: String get() = if (BuildConfig.DEBUG) TEST_REWARDED else PROD_REWARDED
+    val INTERSTITIAL: String get() = if (BuildConfig.DEBUG) TEST_INTERSTITIAL else PROD_INTERSTITIAL
 }
 
 class AdManager(private val context: Context) {
@@ -66,8 +75,19 @@ class AdManager(private val context: Context) {
         ad.show(activity, OnUserEarnedRewardListener { onEarned() })
     }
 
+    /**
+     * Shows an interstitial. If no ad is preloaded yet, kicks off a preload
+     * for next time and invokes [onDismissed] immediately so the caller can
+     * resume paused state (like coin accrual) without waiting for an ad that
+     * will never appear.
+     */
     fun showInterstitial(activity: Activity, onDismissed: () -> Unit = {}) {
-        val ad = interstitial ?: return
+        val ad = interstitial
+        if (ad == null) {
+            preloadInterstitial()
+            onDismissed()
+            return
+        }
         ad.fullScreenContentCallback = object : FullScreenContentCallback() {
             override fun onAdDismissedFullScreenContent() {
                 interstitial = null
@@ -76,6 +96,7 @@ class AdManager(private val context: Context) {
             }
             override fun onAdFailedToShowFullScreenContent(error: AdError) {
                 interstitial = null
+                preloadInterstitial()
                 onDismissed()
             }
         }

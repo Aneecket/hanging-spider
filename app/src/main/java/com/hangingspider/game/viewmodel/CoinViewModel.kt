@@ -31,6 +31,7 @@ class CoinViewModel(
         const val WIN_REWARD = 200L
         const val WATCH_AD_DOUBLER_MS = 10L * 60L * 1000L // 10 min
         const val GAMES_PER_INTERSTITIAL = 3
+        const val PLAY_AGAIN_STREAK_FOR_AD = 4
     }
 
     private val _profile = MutableStateFlow<UserProfile?>(null)
@@ -42,6 +43,7 @@ class CoinViewModel(
     private var accrualJob: Job? = null
     private var pendingAccrual = 0L
     private var gamesSinceInterstitial = 0
+    private var playAgainStreak = 0
 
     /**
      * Called from the game screen when a round finishes (win or loss). Returns true
@@ -56,6 +58,23 @@ class CoinViewModel(
             true
         } else false
     }
+
+    /**
+     * Tracks the "Play again" streak inside a single game screen visit. Returns
+     * true every [PLAY_AGAIN_STREAK_FOR_AD] taps so the caller shows an
+     * interstitial before the next round; false otherwise. Reset the streak
+     * with [resetPlayAgainStreak] on exit or Return home so the count starts
+     * fresh next time the player enters the game screen.
+     */
+    fun onPlayAgainShouldShowAd(): Boolean {
+        playAgainStreak++
+        return if (playAgainStreak >= PLAY_AGAIN_STREAK_FOR_AD) {
+            playAgainStreak = 0
+            true
+        } else false
+    }
+
+    fun resetPlayAgainStreak() { playAgainStreak = 0 }
 
     init {
         viewModelScope.launch {

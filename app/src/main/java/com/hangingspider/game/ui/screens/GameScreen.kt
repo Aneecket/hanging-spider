@@ -38,6 +38,7 @@ import com.hangingspider.game.viewmodel.GameViewModel
 fun GameScreen(
     coinVm: CoinViewModel,
     onExit: () -> Unit,
+    onReplay: (proceed: () -> Unit) -> Unit = { it() },
     gameVm: GameViewModel = viewModel()
 ) {
     val state by gameVm.state.collectAsStateWithLifecycle()
@@ -126,7 +127,7 @@ fun GameScreen(
                     ResultPanel(
                         won = state.status == GameStatus.WON,
                         word = state.word.text,
-                        onReplay = { gameVm.reset() },
+                        onReplay = { onReplay { gameVm.reset() } },
                         onExit = onExit
                     )
                     Spacer(Modifier.height(16.dp))
