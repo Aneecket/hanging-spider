@@ -113,7 +113,7 @@ fun CashoutScreen(
                 BalanceRow(coins = profile?.coins ?: 0)
                 Spacer(Modifier.height(16.dp))
                 Text(
-                    "Exchange coins for Amazon gift cards. Codes arrive in your Missives tab within 48 hours.",
+                    "Exchange coins for Amazon or Flipkart gift cards. Codes arrive in your Missives tab within 48 hours.",
                     style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                     color = AppColors.Lavender
                 )

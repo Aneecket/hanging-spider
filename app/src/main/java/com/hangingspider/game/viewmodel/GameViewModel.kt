@@ -10,7 +10,7 @@ class GameViewModel : ViewModel() {
 
     companion object {
         const val MAX_WRONG = 6
-        const val HINT_COST = 50L
+        const val HINT_COST = 10L
     }
 
     private val _state = MutableStateFlow(freshState())

@@ -8,7 +8,8 @@ package com.hangingspider.game.data.model
  * fulfillment operations per rupee paid out).
  */
 enum class RewardProvider(val display: String, val glyph: String, val accentHex: Long) {
-    AMAZON("Amazon", "A", 0xFFFF9900)
+    AMAZON("Amazon", "A", 0xFFFF9900),
+    FLIPKART("Flipkart", "F", 0xFF2874F0)
 }
 
 data class RewardTier(
@@ -25,7 +26,11 @@ object RewardCatalog {
         RewardTier("amz_100",  RewardProvider.AMAZON, 100,    100_000),
         RewardTier("amz_250",  RewardProvider.AMAZON, 250,    240_000),
         RewardTier("amz_500",  RewardProvider.AMAZON, 500,    470_000),
-        RewardTier("amz_1000", RewardProvider.AMAZON, 1000,   900_000)
+        RewardTier("amz_1000", RewardProvider.AMAZON, 1000,   900_000),
+        RewardTier("fk_100",   RewardProvider.FLIPKART, 100,  100_000),
+        RewardTier("fk_250",   RewardProvider.FLIPKART, 250,  240_000),
+        RewardTier("fk_500",   RewardProvider.FLIPKART, 500,  470_000),
+        RewardTier("fk_1000",  RewardProvider.FLIPKART, 1000, 900_000)
     )
 
     fun byId(id: String): RewardTier? = tiers.firstOrNull { it.id == id }

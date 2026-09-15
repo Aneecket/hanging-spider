@@ -118,6 +118,7 @@
         <label>Type</label>
         <select id="prizeType">
           <option value="amazon">Amazon voucher</option>
+          <option value="flipkart">Flipkart voucher</option>
           <option value="usdt">USDT payout</option>
           <option value="btc">BTC payout</option>
           <option value="custom">Custom</option>
@@ -143,7 +144,7 @@
 
       <div class="card" style="grid-column: 1 / -1">
         <h2>Pending cashouts</h2>
-        <p class="status">Buy the gift card on Amazon.in, delivery to the user's email. Paste the confirmation code, click Fulfill.</p>
+        <p class="status">Buy the gift card from the requested store (Amazon.in or Flipkart.com), deliver to the user's email. Paste the confirmation code, click Fulfill.</p>
         <table>
           <thead>
             <tr>
@@ -318,7 +319,7 @@ function renderPending(rows) {
       <td class="gold">${escape(r.displayLabel)}</td>
       <td>${r.coins}</td>
       <td style="font-size:12px">${escape(r.email)}</td>
-      <td><input class="giftCodeInput" placeholder="AMZ-XXXX-YYYY" style="min-width:140px" /></td>
+      <td><input class="giftCodeInput" placeholder="${r.provider === 'FLIPKART' ? 'FK-XXXX-YYYY' : 'AMZ-XXXX-YYYY'}" style="min-width:140px" /></td>
       <td>
         <button class="fulfillBtn" style="margin:0">Fulfill</button>
         <button class="ghost rejectBtn" style="margin:2px 0 0">Reject</button>
@@ -343,7 +344,7 @@ async function onFulfill(e) {
   const tr = e.target.closest("tr");
   const uid = tr.dataset.uid, id = tr.dataset.id;
   const code = tr.querySelector(".giftCodeInput").value.trim();
-  if (!code) { alert("Paste the Amazon gift code before fulfilling."); return; }
+  if (!code) { alert("Paste the gift code before fulfilling."); return; }
   try {
     // Load the request to grab the display label for the whisper.
     const reqSnap = await get(ref(db, `cashouts/${uid}/${id}`));
@@ -354,10 +355,13 @@ async function onFulfill(e) {
       giftCode: code,
       fulfilledAt: Date.now()
     });
+    const redeemUrl = req.provider === "FLIPKART"
+      ? "flipkart.com/pages/giftcard"
+      : "amazon.in/gc/redeem";
     await sendWhisper(
       uid,
       `Your ${req.displayLabel || "gift card"} is here`,
-      `Redemption fulfilled. Gift code: ${code}\n\nRedeem at amazon.in/gc/redeem`
+      `Redemption fulfilled. Gift code: ${code}\n\nRedeem at ${redeemUrl}`
     );
   } catch (err) { alert("Fulfill failed: " + err.message); }
 }

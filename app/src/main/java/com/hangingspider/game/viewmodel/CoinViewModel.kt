@@ -27,8 +27,8 @@ class CoinViewModel(
         const val COINS_PER_TICK = 1L
         const val TICK_MS = 10_000L // 1 coin per 10 seconds
         const val SYNC_INTERVAL_MS = 30_000L
-        const val DAILY_REWARD = 500L
-        const val WIN_REWARD = 200L
+        const val DAILY_REWARD = 300L
+        const val WIN_REWARD = 50L
         const val WATCH_AD_DOUBLER_MS = 10L * 60L * 1000L // 10 min
         const val GAMES_PER_INTERSTITIAL = 3
         const val PLAY_AGAIN_STREAK_FOR_AD = 4

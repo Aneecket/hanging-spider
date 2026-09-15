@@ -378,9 +378,9 @@ private fun ActionChips(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
     ) {
-        ActionChip(label = "Daily rewards", accent = AppColors.GoldBright, icon = "☀",  onClick = onDaily)
-        ActionChip(label = "2x rewards",    accent = AppColors.Signal,     icon = "✦",  onClick = onBounty)
-        ActionChip(label = "Cash out",      accent = AppColors.GoldBright, icon = "◈",  onClick = onCashout)
+        ActionChip(label = "Daily\nrewards", accent = AppColors.GoldBright, icon = "☀",  onClick = onDaily)
+        ActionChip(label = "2x\nrewards",    accent = AppColors.Signal,     icon = "✦",  onClick = onBounty)
+        ActionChip(label = "Cash\nout",      accent = AppColors.GoldBright, icon = "◈",  onClick = onCashout)
     }
 }
 
@@ -404,8 +404,9 @@ private fun ActionChip(
         Text(
             label,
             color = AppColors.Ivory,
-            style = MaterialTheme.typography.labelLarge.copy(fontSize = 13.sp),
-            maxLines = 1
+            style = MaterialTheme.typography.labelLarge.copy(fontSize = 12.sp, lineHeight = 13.sp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
+            maxLines = 2
         )
     }
 }
