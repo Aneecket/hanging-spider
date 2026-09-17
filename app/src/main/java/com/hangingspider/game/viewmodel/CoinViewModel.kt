@@ -35,7 +35,6 @@ class CoinViewModel(
         const val TICK_MS = 10_000L // 1 point per 10 seconds
         const val SYNC_INTERVAL_MS = 30_000L
         const val WIN_REWARD = 50L
-        const val HINT_COST = 10L
         const val WATCH_AD_DOUBLER_MS = 10L * 60L * 1000L // 10 min
     }
 
@@ -138,14 +137,6 @@ class CoinViewModel(
             repo.setDoublerUntil(uid, until)
             _events.value = CoinEvent.DoublerActivated(until)
         }
-    }
-
-    /** Debits [amount] points if the current balance covers it. Returns true on success. */
-    suspend fun spendCoins(amount: Long): Boolean {
-        val current = _profile.value?.coins ?: 0L
-        if (current < amount) return false
-        runCatching { repo.addCoins(uid, -amount) }.onFailure { return false }
-        return true
     }
 
     /** Saves a finished round; returns what changed (new level, achievements) for the results panel. */

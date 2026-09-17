@@ -83,7 +83,6 @@ fun GameHost(level: Int, mode: PlayMode, coinVm: CoinViewModel, onExit: () -> Un
     val ads = LocalAdManager.current
     val showRewarded = rememberRewardedAd()
     val scope = rememberCoroutineScope()
-    val coins = coinVm.profile.collectAsStateWithLifecycle().value?.coins ?: 0L
     val dailyRecords by coinVm.daily.collectAsStateWithLifecycle()
 
     val wordsReady by produceState(WordLists.isLoaded) {
@@ -265,29 +264,15 @@ fun GameHost(level: Int, mode: PlayMode, coinVm: CoinViewModel, onExit: () -> Un
             title = { Text("Use a hint?", style = MaterialTheme.typography.headlineMedium.copy(fontSize = 18.sp)) },
             text = {
                 Text(
-                    "Pay ${CoinViewModel.HINT_COST} points or watch a short ad. Using a hint caps this round at 2 stars.",
+                    "Watch a short ad to get a hint. Using a hint caps this round at 2 stars.",
                     style = MaterialTheme.typography.bodyMedium
                 )
             },
             confirmButton = {
-                Column(horizontalAlignment = Alignment.End) {
-                    TextButton(
-                        enabled = coins >= CoinViewModel.HINT_COST,
-                        onClick = {
-                            pendingHint = null
-                            scope.launch {
-                                if (coinVm.spendCoins(CoinViewModel.HINT_COST)) {
-                                    hintsUsed++
-                                    granted()
-                                }
-                            }
-                        }
-                    ) { Text("Use ${CoinViewModel.HINT_COST} points", color = if (coins >= CoinViewModel.HINT_COST) AppColors.GoldBright else AppColors.MutedText) }
-                    TextButton(onClick = {
-                        pendingHint = null
-                        showRewarded({ hintsUsed++; granted() }, {})
-                    }) { Text("Watch an ad", color = AppColors.GoldBright) }
-                }
+                TextButton(onClick = {
+                    pendingHint = null
+                    showRewarded({ hintsUsed++; granted() }, {})
+                }) { Text("▶ Watch ad", color = AppColors.GoldBright) }
             },
             dismissButton = {
                 TextButton(onClick = { pendingHint = null }) { Text("Cancel", color = AppColors.Lavender) }
