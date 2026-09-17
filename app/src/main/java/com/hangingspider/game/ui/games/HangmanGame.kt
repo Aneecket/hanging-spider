@@ -16,20 +16,16 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hangingspider.game.game.Word
 import com.hangingspider.game.game.WordBank
 import com.hangingspider.game.ui.theme.AppColors
 import com.hangingspider.game.ui.theme.AppGradients
-import com.hangingspider.game.viewmodel.CoinViewModel
-import kotlinx.coroutines.launch
 
 enum class GameStatus { PLAYING, WON, LOST }
 
 class HangmanState(val word: Word = WordBank.random()) {
     companion object {
         const val MAX_WRONG = 6
-        const val HINT_COST = 10L
     }
 
     var guessed by mutableStateOf(emptySet<Char>())
@@ -66,15 +62,25 @@ class HangmanState(val word: Word = WordBank.random()) {
 }
 
 @Composable
-fun HangmanGame(coinVm: CoinViewModel, onRoundEnd: (RoundResult) -> Unit) {
+fun HangmanGame(session: GameSession) {
     val state = remember { HangmanState() }
-    val coins = coinVm.profile.collectAsStateWithLifecycle().value?.coins ?: 0L
-    val scope = rememberCoroutineScope()
 
     LaunchedEffect(state.status) {
+        val strands = "🟥".repeat(state.wrong) + "⬛".repeat(HangmanState.MAX_WRONG - state.wrong)
         when (state.status) {
-            GameStatus.WON -> onRoundEnd(RoundResult(true, "You unravelled: ${state.word.text}"))
-            GameStatus.LOST -> onRoundEnd(RoundResult(false, "The word was: ${state.word.text}"))
+            GameStatus.WON -> session.end(
+                RoundResult(
+                    true,
+                    "You unravelled: ${state.word.text}",
+                    stars = when {
+                        state.wrong <= 1 -> 3
+                        state.wrong <= 3 -> 2
+                        else -> 1
+                    },
+                    share = "${state.word.text.length}-letter word · $strands"
+                )
+            )
+            GameStatus.LOST -> session.end(RoundResult(false, "The word was: ${state.word.text}", share = strands))
             GameStatus.PLAYING -> Unit
         }
     }
@@ -98,18 +104,12 @@ fun HangmanGame(coinVm: CoinViewModel, onRoundEnd: (RoundResult) -> Unit) {
             Spacer(Modifier.height(6.dp))
             ClueLine(category = state.word.category, hint = state.word.hint)
             Spacer(Modifier.height(8.dp))
-            HintButton(
-                coins = coins,
-                cost = HangmanState.HINT_COST,
-                canReveal = state.canReveal(),
-                onReveal = {
-                    scope.launch {
-                        if (coinVm.spendCoins(HangmanState.HINT_COST)) state.revealHint()
-                    }
-                }
+            RevealLetterButton(
+                enabled = state.canReveal() && !session.paused,
+                onReveal = { session.requestHint { state.revealHint() } }
             )
             Spacer(Modifier.height(6.dp))
-            GameKeyboard(onLetter = state::guess, disabled = state.guessed)
+            GameKeyboard(onLetter = { if (!session.paused) state.guess(it) }, disabled = state.guessed)
             Spacer(Modifier.height(10.dp))
         }
     }
@@ -249,13 +249,7 @@ private fun ClueLine(category: String, hint: String) {
 }
 
 @Composable
-private fun HintButton(
-    coins: Long,
-    cost: Long,
-    canReveal: Boolean,
-    onReveal: () -> Unit
-) {
-    val enabled = canReveal && coins >= cost
+private fun RevealLetterButton(enabled: Boolean, onReveal: () -> Unit) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
@@ -266,7 +260,7 @@ private fun HintButton(
     ) {
         TextButton(onClick = onReveal, enabled = enabled) {
             Text(
-                "✦  Reveal a letter · $cost points",
+                "✦  Reveal a letter",
                 color = if (enabled) AppColors.Ivory else AppColors.MutedText,
                 style = MaterialTheme.typography.labelLarge
             )

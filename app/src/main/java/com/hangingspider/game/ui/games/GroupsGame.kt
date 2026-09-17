@@ -20,18 +20,24 @@ import com.hangingspider.game.ui.theme.AppColors
 private const val GROUP_MISTAKES = 4
 
 @Composable
-fun GroupsGame(onRoundEnd: (RoundResult) -> Unit) {
-    val puzzle = remember { GroupsPuzzle.generate() }
+fun GroupsGame(session: GameSession) {
+    val puzzle = remember { GroupsPuzzle.generate(session.random) }
     var remaining by remember { mutableStateOf(puzzle.groups.flatMap { it.second }.shuffled()) }
     var selected by remember { mutableStateOf(emptySet<String>()) }
     var solved by remember { mutableStateOf(emptyList<Int>()) }
     var mistakes by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("Pick four words that belong together") }
     var over by remember { mutableStateOf(false) }
+    var allowedMistakes by remember { mutableIntStateOf(GROUP_MISTAKES) }
+    var guesses by remember { mutableStateOf(emptyList<List<Int>>()) }
+
+    val squares = listOf("🟨", "🟩", "🟦", "🟪")
+    fun grid() = guesses.joinToString("\n") { row -> row.joinToString("") { squares[it % squares.size] } }
 
     fun submit() {
-        if (over || selected.size != 4) return
+        if (over || session.paused || selected.size != 4) return
         val groupIds = selected.map { puzzle.groupOf(it) }
+        guesses = guesses + listOf(groupIds)
         val counts = groupIds.groupingBy { it }.eachCount()
         if (counts.size == 1) {
             val g = groupIds.first()
@@ -41,16 +47,35 @@ fun GroupsGame(onRoundEnd: (RoundResult) -> Unit) {
             message = puzzle.groups[g].first.name
             if (solved.size == puzzle.groups.size) {
                 over = true
-                onRoundEnd(RoundResult(true, "All four groups found with ${GROUP_MISTAKES - mistakes} mistakes to spare."))
+                session.end(
+                    RoundResult(
+                        true,
+                        "All four groups found with $mistakes ${if (mistakes == 1) "mistake" else "mistakes"}.",
+                        stars = when {
+                            mistakes == 0 -> 3
+                            mistakes <= 2 -> 2
+                            else -> 1
+                        },
+                        share = grid()
+                    )
+                )
             }
         } else {
             mistakes++
             message = if (counts.values.max() == 3) "One away…" else "Not a group"
-            if (mistakes == GROUP_MISTAKES) {
-                over = true
-                solved = solved + puzzle.groups.indices.filter { it !in solved }
-                remaining = emptyList()
-                onRoundEnd(RoundResult(false, "Out of mistakes. The groups were: ${puzzle.groups.joinToString { it.first.name }}."))
+            if (mistakes == allowedMistakes) {
+                session.offerSecondChance(
+                    "Out of mistakes!", "one more mistake",
+                    onGranted = { allowedMistakes++ },
+                    onDeclined = {
+                        over = true
+                        solved = solved + puzzle.groups.indices.filter { it !in solved }
+                        remaining = emptyList()
+                        session.end(
+                            RoundResult(false, "Out of mistakes. The groups were: ${puzzle.groups.joinToString { it.first.name }}.", share = grid())
+                        )
+                    }
+                )
             }
         }
     }
@@ -119,16 +144,23 @@ fun GroupsGame(onRoundEnd: (RoundResult) -> Unit) {
         Text(message, style = MaterialTheme.typography.bodyMedium, color = AppColors.IvoryDim)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text("Mistakes left ", style = MaterialTheme.typography.labelLarge, color = AppColors.MutedText)
-            repeat(GROUP_MISTAKES) {
+            repeat(allowedMistakes) {
                 Box(
                     Modifier
                         .padding(3.dp)
                         .size(10.dp)
                         .clip(CircleShape)
-                        .background(if (it < GROUP_MISTAKES - mistakes) AppColors.Signal else AppColors.Charcoal)
+                        .background(if (it < allowedMistakes - mistakes) AppColors.Signal else AppColors.Charcoal)
                 )
             }
         }
+        HintButton("Hint · pair two words", enabled = !over && !session.paused, onClick = {
+            session.requestHint {
+                val group = puzzle.groups.indices.first { it !in solved }
+                selected = puzzle.groups[group].second.take(2).toSet()
+                message = "These two belong together"
+            }
+        })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             SecondaryButton("Shuffle", { remaining = remaining.shuffled() })
             SecondaryButton("Deselect", { selected = emptySet() })

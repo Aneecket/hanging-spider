@@ -19,6 +19,7 @@ import com.hangingspider.game.game.engine.WordSearchPuzzle
 import com.hangingspider.game.ui.theme.AppColors
 
 private const val WORD_SEARCH_SECONDS = 180
+const val EXTRA_SECONDS = 60
 
 private val themes = listOf(
     "creature", "place", "object", "nature", "food", "job", "sport", "body", "plant", "clothing",
@@ -36,14 +37,37 @@ private fun newWordSearch(): WordSearchPuzzle {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun WordSearchGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
+fun WordSearchGame(session: GameSession) {
     val puzzle = remember { newWordSearch() }
     var found by remember { mutableStateOf(mapOf<String, List<Cell>>()) }
     var dragStart by remember { mutableStateOf<Cell?>(null) }
     var dragEnd by remember { mutableStateOf<Cell?>(null) }
+    lateinit var countdown: Countdown
 
-    val countdown = rememberCountdown(WORD_SEARCH_SECONDS, running = !paused) {
-        onRoundEnd(RoundResult(false, "Time's up. You found ${found.size} of ${puzzle.words.size} words."))
+    fun markFound(word: String, cells: List<Cell>) {
+        found = found + (word to cells)
+        if (found.size == puzzle.words.size) {
+            val left = countdown.secondsLeft
+            session.end(
+                RoundResult(
+                    true,
+                    "Found all ${puzzle.words.size} ${puzzle.theme.lowercase()} words with ${formatSeconds(left)} left.",
+                    stars = when {
+                        left >= 90 -> 3
+                        left >= 30 -> 2
+                        else -> 1
+                    }
+                )
+            )
+        }
+    }
+
+    countdown = rememberCountdown(WORD_SEARCH_SECONDS, running = !session.paused) {
+        session.offerSecondChance(
+            "Out of time!", "$EXTRA_SECONDS more seconds",
+            onGranted = { countdown.addTime(EXTRA_SECONDS) },
+            onDeclined = { session.end(RoundResult(false, "Time's up. You found ${found.size} of ${puzzle.words.size} words.")) }
+        )
     }
 
     val selection = dragStart?.let { s -> dragEnd?.let { e -> WordSearchGenerator.line(s, e) } ?: listOf(s) }.orEmpty()
@@ -81,7 +105,7 @@ fun WordSearchGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
                     .gridDrag(
                         rows = puzzle.size,
                         cols = puzzle.size,
-                        enabled = !paused,
+                        enabled = !session.paused,
                         onStart = { r, c -> dragStart = Cell(r, c); dragEnd = Cell(r, c) },
                         onMove = { r, c ->
                             val start = dragStart
@@ -92,20 +116,9 @@ fun WordSearchGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
                             dragStart = null
                             dragEnd = null
                             val text = cells.joinToString("") { puzzle.grid[it.row][it.col].toString() }
-                            val match = puzzle.words.firstOrNull {
+                            puzzle.words.firstOrNull {
                                 it.word !in found && (it.word == text || it.word == text.reversed())
-                            }
-                            if (match != null) {
-                                found = found + (match.word to cells)
-                                if (found.size == puzzle.words.size) {
-                                    onRoundEnd(
-                                        RoundResult(
-                                            true,
-                                            "Found all ${puzzle.words.size} words with ${formatSeconds(countdown.secondsLeft)} left."
-                                        )
-                                    )
-                                }
-                            }
+                            }?.let { markFound(it.word, cells) }
                         }
                     )
             ) {
@@ -158,5 +171,11 @@ fun WordSearchGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
                 )
             }
         }
+        Spacer(Modifier.height(16.dp))
+        HintButton("Hint · find a word", enabled = !session.paused, onClick = {
+            session.requestHint {
+                puzzle.words.firstOrNull { it.word !in found }?.let { markFound(it.word, it.cells) }
+            }
+        })
     }
 }

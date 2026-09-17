@@ -17,6 +17,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.hangingspider.game.ads.BannerAdSlot
 import com.hangingspider.game.data.model.AdminMessage
 import com.hangingspider.game.ui.theme.AppColors
 import com.hangingspider.game.ui.theme.AppGradients
@@ -49,7 +50,8 @@ fun MessagesScreen(vm: MessagesViewModelHolder) {
                         containerColor = Color.Transparent
                     )
                 )
-            }
+            },
+            bottomBar = { BannerAdSlot() }
         ) { inner ->
             if (messages.isEmpty()) {
                 EmptyInbox(modifier = Modifier.padding(inner).fillMaxSize())

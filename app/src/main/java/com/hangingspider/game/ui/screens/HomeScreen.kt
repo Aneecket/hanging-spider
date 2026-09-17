@@ -1,6 +1,21 @@
 package com.hangingspider.game.ui.screens
 
 import androidx.compose.animation.core.*
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.core.content.ContextCompat
+import com.hangingspider.game.ads.rememberRewardedAd
+import com.hangingspider.game.data.model.DailyRecord
+import com.hangingspider.game.game.GameType
+import com.hangingspider.game.game.StreakState
+import com.hangingspider.game.game.Streaks
+import com.hangingspider.game.reminders.EngagementPrefs
+import com.hangingspider.game.reminders.Reminders
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,7 +42,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.hangingspider.game.game.Levels
 import com.hangingspider.game.ui.theme.AppColors
 import com.hangingspider.game.ui.theme.AppGradients
-import com.hangingspider.game.viewmodel.AuthViewModel
 import com.hangingspider.game.viewmodel.CoinEvent
 import com.hangingspider.game.viewmodel.CoinViewModel
 
@@ -35,26 +49,35 @@ import com.hangingspider.game.viewmodel.CoinViewModel
 @Composable
 fun HomeScreen(
     coinVm: CoinViewModel,
-    authVm: AuthViewModel,
     onPlay: () -> Unit,
-    onWatchAdForDoubler: () -> Unit,
+    onDaily: (GameType) -> Unit,
+    onAchievements: () -> Unit,
     onSettings: () -> Unit
 ) {
+    val context = LocalContext.current
     val profile by coinVm.profile.collectAsStateWithLifecycle()
     val level by coinVm.level.collectAsStateWithLifecycle()
     val event by coinVm.events.collectAsStateWithLifecycle()
+    val today by coinVm.today.collectAsStateWithLifecycle()
+    val daily by coinVm.daily.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val showRewarded = rememberRewardedAd()
+    var claimed by remember { mutableStateOf<Long?>(null) }
+
+    val streak = StreakState(profile?.streakCount ?: 0, profile?.streakLastDay ?: -10)
+    val liveStreak = Streaks.current(streak, today)
+    val claimedToday = profile?.lastDailyClaimDay == today
 
     LaunchedEffect(event) {
         val e = event ?: return@LaunchedEffect
-        val msg = when (e) {
-            is CoinEvent.DailyClaimed -> "Blessing received: +${e.amount} points"
-            CoinEvent.DailyOnCooldown -> "The moon rests. Return later for your daily blessing."
-            is CoinEvent.DoublerActivated -> "The oracle grants you doubled bounty for 10 minutes"
-            is CoinEvent.GameResult -> if (e.won) "Victory! +${e.awarded} points" else "The spider claims this round"
-        }
-        snackbar.showSnackbar(msg)
         coinVm.consumeEvent()
+        when (e) {
+            is CoinEvent.DailyClaimed -> claimed = e.amount
+            CoinEvent.DailyOnCooldown -> snackbar.showSnackbar("Already claimed today. Come back tomorrow for a bigger reward.")
+            is CoinEvent.DoublerActivated -> snackbar.showSnackbar("Double points for 10 minutes")
+            is CoinEvent.BonusAdded -> snackbar.showSnackbar("Bonus: +${e.amount} points")
+            is CoinEvent.StreakSaved -> snackbar.showSnackbar("Streak saved: ${e.days} days")
+        }
     }
 
     val doublerUntilMs = profile?.doublerUntil ?: 0L
@@ -101,6 +124,7 @@ fun HomeScreen(
                 modifier = Modifier
                     .padding(inner)
                     .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
@@ -109,36 +133,165 @@ fun HomeScreen(
                 TopStrip(
                     coins = profile?.coins,
                     doublerUntilMs = doublerUntilMs,
+                    streak = liveStreak,
+                    onAchievements = onAchievements,
                     onSettings = onSettings
                 )
-
-                Spacer(Modifier.height(8.dp))
 
                 HeroSpiderStage(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f)
+                        .height(190.dp)
                 )
 
                 TitleBlock()
 
-                Spacer(Modifier.height(16.dp))
+                if (Streaks.canRepair(streak, today)) {
+                    Spacer(Modifier.height(12.dp))
+                    StreakRepairCard(days = streak.count, onSave = { showRewarded({ coinVm.repairStreak() }, {}) })
+                }
+
+                Spacer(Modifier.height(14.dp))
 
                 LevelCard(level = level, points = profile?.coins)
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(12.dp))
 
                 // Wait for the profile so PLAY opens the player's real unlocked level.
                 PlayButton(onClick = { if (profile != null) onPlay() })
 
-                Spacer(Modifier.height(14.dp))
+                Spacer(Modifier.height(12.dp))
+
+                DailyPuzzles(
+                    done = daily,
+                    onOpen = onDaily
+                )
+
+                Spacer(Modifier.height(12.dp))
 
                 ActionChips(
+                    dailyLabel = if (claimedToday) "Reward\nclaimed" else "Daily\n+${Streaks.dailyReward(streak, today)}",
                     onDaily = { coinVm.claimDaily() },
-                    onBounty = onWatchAdForDoubler
+                    onBounty = { showRewarded({ coinVm.activateDoubler() }, {}) }
                 )
 
                 Spacer(Modifier.height(20.dp))
+            }
+        }
+    }
+
+    claimed?.let { amount ->
+        AlertDialog(
+            onDismissRequest = { claimed = null },
+            containerColor = AppColors.CharcoalMid,
+            titleContentColor = AppColors.GoldBright,
+            textContentColor = AppColors.Ivory,
+            title = { Text("+$amount points", style = MaterialTheme.typography.headlineMedium.copy(fontSize = 22.sp)) },
+            text = {
+                Text(
+                    "Day ${Streaks.rewardDay(streak, today)} reward. Rewards grow each day you play in a row, up to 500 points on day 7.\n\nWatch a short ad to double today's reward?",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    claimed = null
+                    showRewarded({ coinVm.addBonus(amount) }, {})
+                }) { Text("▶ Double it", color = AppColors.GoldBright) }
+            },
+            dismissButton = {
+                TextButton(onClick = { claimed = null }) { Text("No thanks", color = AppColors.Lavender) }
+            }
+        )
+    }
+
+    ReminderOffer(gamesPlayed = profile?.gamesPlayed ?: 0)
+}
+
+/** Asks once, after the first finished round, whether the player wants a daily reminder. */
+@Composable
+private fun ReminderOffer(gamesPlayed: Int) {
+    val context = LocalContext.current
+    val prefs = remember { EngagementPrefs(context) }
+    var show by remember { mutableStateOf(false) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        Reminders.setEnabled(context, granted)
+    }
+    LaunchedEffect(gamesPlayed) {
+        if (gamesPlayed >= 1 && !prefs.reminderAsked) show = true
+    }
+    if (!show) return
+    AlertDialog(
+        onDismissRequest = { show = false; prefs.reminderAsked = true },
+        containerColor = AppColors.CharcoalMid,
+        titleContentColor = AppColors.GoldBright,
+        textContentColor = AppColors.Ivory,
+        title = { Text("Daily reminder?", style = MaterialTheme.typography.headlineMedium.copy(fontSize = 20.sp)) },
+        text = {
+            Text(
+                "One notification a day at 7 PM when a new puzzle is ready or your streak is about to end. You can turn it off in Settings.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                show = false
+                prefs.reminderAsked = true
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                ) permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                else Reminders.setEnabled(context, true)
+            }) { Text("Remind me", color = AppColors.GoldBright) }
+        },
+        dismissButton = {
+            TextButton(onClick = { show = false; prefs.reminderAsked = true }) { Text("No thanks", color = AppColors.Lavender) }
+        }
+    )
+}
+
+@Composable
+private fun StreakRepairCard(days: Int, onSave: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(AppColors.Bloodstone)
+            .clickable(onClick = onSave)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Your $days-day streak broke yesterday", style = MaterialTheme.typography.titleMedium, color = AppColors.Ivory)
+            Text("Watch a short ad to keep it", style = MaterialTheme.typography.bodySmall, color = AppColors.IvoryDim)
+        }
+        Text("▶ Save", style = MaterialTheme.typography.labelLarge, color = AppColors.GoldBright)
+    }
+}
+
+@Composable
+private fun DailyPuzzles(done: Map<String, DailyRecord>, onOpen: (GameType) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+        listOf(GameType.FIVE_LETTER, GameType.GROUPS).forEach { type ->
+            val record = done[type.name]
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(AppColors.CharcoalMid.copy(alpha = 0.9f))
+                    .clickable { onOpen(type) }
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Text("DAILY PUZZLE", style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp, letterSpacing = 1.sp), color = AppColors.Signal)
+                Text(type.title, style = MaterialTheme.typography.titleMedium, color = AppColors.Ivory, maxLines = 1)
+                Text(
+                    when {
+                        record == null -> "▶ Play today's"
+                        record.won -> "✓ Solved"
+                        else -> "✓ Done"
+                    },
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (record == null) AppColors.GoldBright else AppColors.MutedText
+                )
             }
         }
     }
@@ -148,6 +301,8 @@ fun HomeScreen(
 private fun TopStrip(
     coins: Long?,
     doublerUntilMs: Long,
+    streak: Int,
+    onAchievements: () -> Unit,
     onSettings: () -> Unit
 ) {
     Row(
@@ -155,34 +310,49 @@ private fun TopStrip(
         verticalAlignment = Alignment.CenterVertically
     ) {
         CoinChip(coins = coins, doublerUntilMs = doublerUntilMs)
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.width(8.dp))
         Box(
             modifier = Modifier
-                .size(38.dp)
-                .clip(CircleShape)
-                .background(AppColors.CharcoalMid.copy(alpha = 0.7f))
-                .clickable(onClick = onSettings),
-            contentAlignment = Alignment.Center
+                .clip(RoundedCornerShape(50))
+                .background(AppColors.CharcoalMid.copy(alpha = 0.8f))
+                .padding(horizontal = 12.dp, vertical = 8.dp)
         ) {
+            Text("🔥 $streak", color = if (streak > 0) AppColors.GoldBright else AppColors.MutedText, style = MaterialTheme.typography.labelLarge)
+        }
+        Spacer(Modifier.weight(1f))
+        RoundIconButton(onClick = onAchievements) { Text("🏆", fontSize = 18.sp) }
+        Spacer(Modifier.width(8.dp))
+        RoundIconButton(onClick = onSettings) {
             Canvas(modifier = Modifier.size(18.dp)) {
                 val cx = size.width / 2f
                 val cy = size.height / 2f
                 val r = size.minDimension * 0.30f
                 val col = AppColors.Silver
-                // Gear teeth
                 for (i in 0 until 8) {
                     val a = (i * 45f) * (Math.PI.toFloat() / 180f)
                     val x1 = cx + kotlin.math.cos(a) * r * 1.05f
                     val y1 = cy + kotlin.math.sin(a) * r * 1.05f
                     val x2 = cx + kotlin.math.cos(a) * r * 1.45f
                     val y2 = cy + kotlin.math.sin(a) * r * 1.45f
-                    drawLine(col, androidx.compose.ui.geometry.Offset(x1, y1), androidx.compose.ui.geometry.Offset(x2, y2), 2.5f)
+                    drawLine(col, Offset(x1, y1), Offset(x2, y2), 2.5f)
                 }
-                drawCircle(col, radius = r, style = androidx.compose.ui.graphics.drawscope.Stroke(width = 2.2f))
+                drawCircle(col, radius = r, style = Stroke(width = 2.2f))
                 drawCircle(col, radius = r * 0.35f)
             }
         }
     }
+}
+
+@Composable
+private fun RoundIconButton(onClick: () -> Unit, content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .size(38.dp)
+            .clip(CircleShape)
+            .background(AppColors.CharcoalMid.copy(alpha = 0.7f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) { content() }
 }
 
 @Composable
@@ -405,7 +575,7 @@ private fun PlayButton(onClick: () -> Unit) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .height(72.dp)
+            .height(64.dp)
             .shadow(16.dp, RoundedCornerShape(22.dp), spotColor = AppColors.Signal)
             .clip(RoundedCornerShape(22.dp))
             .background(
@@ -429,6 +599,7 @@ private fun PlayButton(onClick: () -> Unit) {
 
 @Composable
 private fun ActionChips(
+    dailyLabel: String,
     onDaily: () -> Unit,
     onBounty: () -> Unit
 ) {
@@ -436,7 +607,7 @@ private fun ActionChips(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)
     ) {
-        ActionChip(label = "Daily\nrewards", accent = AppColors.GoldBright, icon = "☀",  onClick = onDaily)
+        ActionChip(label = dailyLabel,        accent = AppColors.GoldBright, icon = "☀",  onClick = onDaily)
         ActionChip(label = "2x\nrewards",    accent = AppColors.Signal,     icon = "✦",  onClick = onBounty)
     }
 }

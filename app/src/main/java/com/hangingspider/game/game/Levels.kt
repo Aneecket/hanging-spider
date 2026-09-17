@@ -17,12 +17,23 @@ enum class GameType(val title: String, val howToPlay: String) {
 }
 
 object Levels {
-    private const val POINTS_PER_LEVEL = 1500L
+    /** New players start with this many levels open. */
+    const val STARTING = 3
+
+    private val EARLY_TARGETS = listOf(300L, 800L, 1500L, 2500L)
+    private const val STEP = 1500L
 
     val MAX: Int = GameType.entries.size
 
-    /** Points needed to unlock [level]: Level 2 at 1,500, Level 3 at 3,000 ... Level 13 at 18,000. */
-    fun pointsToUnlock(level: Int): Long = POINTS_PER_LEVEL * (level - 1)
+    /** Points needed to unlock [level]: free up to Level 3, then 300, 800, 1,500, 2,500, and +1,500 each. */
+    fun pointsToUnlock(level: Int): Long {
+        val index = level - STARTING - 1
+        return when {
+            index < 0 -> 0L
+            index < EARLY_TARGETS.size -> EARLY_TARGETS[index]
+            else -> EARLY_TARGETS.last() + STEP * (index - EARLY_TARGETS.size + 1)
+        }
+    }
 
     fun gameFor(level: Int): GameType = GameType.entries[(level - 1).coerceIn(0, MAX - 1)]
 }

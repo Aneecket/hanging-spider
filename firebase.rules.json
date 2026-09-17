@@ -7,6 +7,18 @@
         "coins":         { ".validate": "newData.isNumber() && newData.val() >= 0" },
         "doublerUntil":  { ".validate": "newData.isNumber()" },
         "lastDailyClaimAt": { ".validate": "newData.isNumber()" },
+        "lastDailyClaimDay": { ".validate": "newData.isNumber()" },
+        "streakCount":   { ".validate": "newData.isNumber() && newData.val() >= 0" },
+        "streakLastDay": { ".validate": "newData.isNumber()" },
+        "stars": {
+          "$level": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 3" }
+        },
+        "stats": {
+          "$key": { ".validate": "newData.isNumber() && newData.val() >= 0" }
+        },
+        "achievements": {
+          "$id": { ".validate": "newData.isNumber()" }
+        },
         "gamesPlayed":   { ".validate": "newData.isNumber() && (!data.exists() || newData.val() >= data.val())" },
         "gamesWon":      { ".validate": "newData.isNumber() && (!data.exists() || newData.val() >= data.val())" },
         "level":         { ".validate": "newData.isNumber() && newData.val() >= 1 && (!data.exists() || newData.val() >= data.val())" },
@@ -29,6 +41,33 @@
         "name":  { ".validate": "newData.isString() && newData.val().length <= 40" },
         "coins": { ".validate": "newData.isNumber() && newData.val() >= 0" },
         "$other": { ".validate": false }
+      }
+    },
+    "weekly": {
+      ".read": "auth != null",
+      "$week": {
+        ".indexOn": ["points"],
+        "$uid": {
+          ".write": "auth != null && auth.uid == $uid",
+          "uid":    { ".validate": "newData.val() == $uid" },
+          "name":   { ".validate": "newData.isString() && newData.val().length <= 40" },
+          "points": { ".validate": "newData.isNumber() && newData.val() >= 0" },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    "daily": {
+      "$uid": {
+        ".read": "auth != null && auth.uid == $uid",
+        ".write": "auth != null && auth.uid == $uid",
+        "$day": {
+          "$game": {
+            "won":    { ".validate": "newData.isBoolean()" },
+            "at":     { ".validate": "newData.isNumber()" },
+            "share":  { ".validate": "newData.isString() && newData.val().length <= 1000" },
+            "$other": { ".validate": false }
+          }
+        }
       }
     },
     "messages": {

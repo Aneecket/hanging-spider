@@ -217,4 +217,23 @@ fun Modifier.gridDrag(
     }
 }
 
+/** Small "Hint" button used by every game; the host decides whether it costs points or an ad. */
+@Composable
+fun HintButton(label: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(20.dp))
+            .background(AppColors.Charcoal)
+    ) {
+        TextButton(onClick = onClick, enabled = enabled, modifier = Modifier.align(Alignment.Center)) {
+            Text(
+                "✦ $label",
+                color = if (enabled) AppColors.GoldBright else AppColors.MutedText,
+                style = MaterialTheme.typography.labelLarge,
+                maxLines = 1
+            )
+        }
+    }
+}
+
 fun formatSeconds(totalSeconds: Int): String = "%d:%02d".format(totalSeconds / 60, totalSeconds % 60)

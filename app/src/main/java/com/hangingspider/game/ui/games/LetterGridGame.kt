@@ -29,7 +29,7 @@ private fun newGrid(): GridSetup {
 }
 
 @Composable
-fun LetterGridGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
+fun LetterGridGame(session: GameSession) {
     val setup by produceState<GridSetup?>(null) { value = withContext(Dispatchers.Default) { newGrid() } }
     val ready = setup ?: run {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -37,24 +37,31 @@ fun LetterGridGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
         }
         return
     }
-    LetterGridPlay(ready, paused, onRoundEnd)
+    LetterGridPlay(ready, session)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun LetterGridPlay(setup: GridSetup, paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
+private fun LetterGridPlay(setup: GridSetup, session: GameSession) {
     var found by remember { mutableStateOf(emptyList<String>()) }
     var score by remember { mutableIntStateOf(0) }
     var tracing by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("Drag through touching letters") }
 
-    val countdown = rememberCountdown(GRID_SECONDS, running = !paused) {
-        val missed = (setup.everyday - found.toSet()).maxByOrNull { it.length }
-        onRoundEnd(
-            RoundResult(
-                false,
-                "You scored $score of ${setup.target}." + (missed?.let { " Longest word you missed: $it." } ?: "")
-            )
+    lateinit var countdown: Countdown
+    countdown = rememberCountdown(GRID_SECONDS, running = !session.paused) {
+        session.offerSecondChance(
+            "Out of time!", "$EXTRA_SECONDS more seconds",
+            onGranted = { countdown.addTime(EXTRA_SECONDS) },
+            onDeclined = {
+                val missed = (setup.everyday - found.toSet()).maxByOrNull { it.length }
+                session.end(
+                    RoundResult(
+                        false,
+                        "You scored $score of ${setup.target}." + (missed?.let { " Longest word you missed: $it." } ?: "")
+                    )
+                )
+            }
         )
     }
 
@@ -88,7 +95,7 @@ private fun LetterGridPlay(setup: GridSetup, paused: Boolean, onRoundEnd: (Round
         Spacer(Modifier.height(10.dp))
         TraceBoard(
             board = setup.board,
-            enabled = !paused,
+            enabled = !session.paused,
             onPathChange = { tracing = setup.board.wordFor(it) },
             onSubmit = { path ->
                 val word = setup.board.wordFor(path)
@@ -101,14 +108,31 @@ private fun LetterGridPlay(setup: GridSetup, paused: Boolean, onRoundEnd: (Round
                         found = listOf(word) + found
                         score += points
                         if (score >= setup.target) {
-                            onRoundEnd(RoundResult(true, "Scored $score with ${found.size} words."))
+                            val left = countdown.secondsLeft
+                            session.end(
+                                RoundResult(
+                                    true,
+                                    "Scored $score with ${found.size} words.",
+                                    stars = when {
+                                        left >= 60 -> 3
+                                        left >= 20 -> 2
+                                        else -> 1
+                                    }
+                                )
+                            )
                         }
                         "$word +$points"
                     }
                 }
             }
         )
-        Spacer(Modifier.height(14.dp))
+        Spacer(Modifier.height(10.dp))
+        HintButton("Hint · show a word", enabled = !session.paused, onClick = {
+            session.requestHint {
+                (setup.everyday - found.toSet()).filter { it.length >= 4 }.randomOrNull()?.let { message = "Try: $it" }
+            }
+        })
+        Spacer(Modifier.height(10.dp))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),

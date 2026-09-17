@@ -15,6 +15,7 @@ class HangingSpiderApp : Application() {
         FirebaseDatabase.getInstance().setPersistenceEnabled(true)
         MobileAds.initialize(this) {}
         createAdminChannel()
+        com.hangingspider.game.reminders.Reminders.createChannel(this)
     }
 
     private fun createAdminChannel() {

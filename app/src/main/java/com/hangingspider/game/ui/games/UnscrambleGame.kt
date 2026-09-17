@@ -1,15 +1,12 @@
 package com.hangingspider.game.ui.games
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import com.hangingspider.game.game.Word
@@ -30,15 +27,22 @@ private fun pickScrambleWord(exclude: Set<String>): Pair<Word, List<Char>> {
 }
 
 @Composable
-fun UnscrambleGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
+fun UnscrambleGame(session: GameSession) {
     var current by remember { mutableStateOf(pickScrambleWord(emptySet())) }
     var seen by remember { mutableStateOf(setOf(current.first.text)) }
     var picked by remember { mutableStateOf(emptyList<Int>()) }
     var solved by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf<String?>(null) }
+    lateinit var countdown: Countdown
 
-    val countdown = rememberCountdown(UNSCRAMBLE_SECONDS, running = !paused) {
-        onRoundEnd(RoundResult(false, "Time's up. You solved $solved of $UNSCRAMBLE_WORDS. The last word was ${current.first.text}."))
+    countdown = rememberCountdown(UNSCRAMBLE_SECONDS, running = !session.paused) {
+        session.offerSecondChance(
+            "Out of time!", "$EXTRA_SECONDS more seconds",
+            onGranted = { countdown.addTime(EXTRA_SECONDS) },
+            onDeclined = {
+                session.end(RoundResult(false, "Time's up. You solved $solved of $UNSCRAMBLE_WORDS. The last word was ${current.first.text}."))
+            }
+        )
     }
 
     val (word, letters) = current
@@ -58,7 +62,18 @@ fun UnscrambleGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
             solved++
             message = "Nice! $attempt"
             if (solved == UNSCRAMBLE_WORDS) {
-                onRoundEnd(RoundResult(true, "All $UNSCRAMBLE_WORDS words solved with ${formatSeconds(countdown.secondsLeft)} left."))
+                val left = countdown.secondsLeft
+                session.end(
+                    RoundResult(
+                        true,
+                        "All $UNSCRAMBLE_WORDS words solved with ${formatSeconds(left)} left.",
+                        stars = when {
+                            left >= 60 -> 3
+                            left >= 20 -> 2
+                            else -> 1
+                        }
+                    )
+                )
             } else {
                 delay(500)
                 nextWord()
@@ -68,6 +83,18 @@ fun UnscrambleGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
             delay(600)
             picked = emptyList()
         }
+    }
+
+    /** Places the next correct letter after the correct part the player already has. */
+    fun revealLetter() {
+        val target = word.text
+        var keep = 0
+        while (keep < picked.size && letters[picked[keep]] == target[keep]) keep++
+        val used = BooleanArray(letters.size)
+        picked = (0..keep.coerceAtMost(target.length - 1)).map { i ->
+            letters.indices.first { !used[it] && letters[it] == target[i] }.also { used[it] = true }
+        }
+        message = "Hint: starts with ${target.take(picked.size)}"
     }
 
     Column(
@@ -107,7 +134,7 @@ fun UnscrambleGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
                             text = index?.let { letters[it].toString() } ?: "",
                             size = tile,
                             background = if (index != null) AppColors.Crimson else AppColors.CharcoalMid,
-                            modifier = Modifier.clickable(enabled = index != null && !paused) {
+                            modifier = Modifier.clickable(enabled = index != null && !session.paused) {
                                 picked = picked.filterIndexed { i, _ -> i != slot }
                             }
                         )
@@ -122,7 +149,7 @@ fun UnscrambleGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
                             size = tile,
                             background = if (used) AppColors.Charcoal.copy(alpha = 0.3f) else GameColors.Tile,
                             textColor = AppColors.GoldBright,
-                            modifier = Modifier.clickable(enabled = !used && !paused) { picked = picked + i }
+                            modifier = Modifier.clickable(enabled = !used && !session.paused) { picked = picked + i }
                         )
                     }
                 }
@@ -133,6 +160,8 @@ fun UnscrambleGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
         Text(message.orEmpty(), style = MaterialTheme.typography.bodyMedium, color = AppColors.IvoryDim)
         Spacer(Modifier.weight(1f))
 
+        HintButton("Hint · next letter", enabled = !session.paused, onClick = { session.requestHint { revealLetter() } })
+        Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             SecondaryButton("Shuffle", {
                 val order = letters.indices.shuffled()
@@ -144,7 +173,7 @@ fun UnscrambleGame(paused: Boolean, onRoundEnd: (RoundResult) -> Unit) {
                 countdown.secondsLeft = (countdown.secondsLeft - SKIP_PENALTY).coerceAtLeast(0)
                 message = "Skipped ${word.text}"
                 nextWord()
-            }, enabled = !paused)
+            }, enabled = !session.paused)
         }
         Spacer(Modifier.height(24.dp))
     }

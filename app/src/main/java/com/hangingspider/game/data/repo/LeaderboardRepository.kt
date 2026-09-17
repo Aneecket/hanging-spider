@@ -6,6 +6,7 @@ import com.google.firebase.database.FirebaseDatabase
 import com.google.firebase.database.Query
 import com.google.firebase.database.ValueEventListener
 import com.hangingspider.game.data.model.LeaderboardEntry
+import com.hangingspider.game.game.AppDay
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -53,6 +54,30 @@ class LeaderboardRepository {
                 trySend(merged)
             }
             override fun onCancelled(err: DatabaseError) { trySend(bots) }
+        }
+        query.addValueEventListener(listener)
+        awaitClose { query.removeEventListener(listener) }
+    }
+
+    /** This week's points earned. Bots scale with how much of the week has passed so the board isn't empty on Monday. */
+    fun observeWeek(week: String = AppDay.weekKey(), limit: Int = 20): Flow<List<LeaderboardEntry>> = callbackFlow {
+        val query: Query = db.getReference("weekly").child(week).orderByChild("points").limitToLast(limit)
+        val weekMs = 7L * 24 * 60 * 60 * 1000
+        val elapsed = (1.0 - AppDay.millisUntilNextWeek().toDouble() / weekMs).coerceIn(0.0, 1.0)
+        val weeklyBots = bots.map { it.copy(coins = (it.coins * 0.25 * elapsed).toLong()) }.filter { it.coins > 0 }
+        val listener = object : ValueEventListener {
+            override fun onDataChange(snap: DataSnapshot) {
+                val real = snap.children.map { c ->
+                    LeaderboardEntry(
+                        uid = c.child("uid").getValue(String::class.java) ?: c.key.orEmpty(),
+                        name = c.child("name").getValue(String::class.java)?.takeIf { it.isNotBlank() } ?: "Adventurer",
+                        coins = c.child("points").getValue(Long::class.java) ?: 0L,
+                        isBot = false
+                    )
+                }
+                trySend((real + weeklyBots).sortedByDescending { it.coins }.take(limit))
+            }
+            override fun onCancelled(err: DatabaseError) { trySend(weeklyBots) }
         }
         query.addValueEventListener(listener)
         awaitClose { query.removeEventListener(listener) }

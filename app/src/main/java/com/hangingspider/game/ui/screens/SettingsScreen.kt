@@ -16,10 +16,62 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
 import com.hangingspider.game.data.repo.UserRepository
+import com.hangingspider.game.reminders.EngagementPrefs
+import com.hangingspider.game.reminders.Reminders
 import com.hangingspider.game.ui.theme.AppColors
 import com.hangingspider.game.ui.theme.AppGradients
 import com.hangingspider.game.viewmodel.AuthViewModel
+
+@Composable
+private fun ReminderToggle() {
+    val context = LocalContext.current
+    val prefs = remember { EngagementPrefs(context) }
+    var enabled by remember { mutableStateOf(prefs.reminderEnabled) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        enabled = granted
+        Reminders.setEnabled(context, granted)
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(AppColors.CharcoalMid.copy(alpha = 0.7f))
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text("Daily reminder", style = MaterialTheme.typography.titleMedium, color = AppColors.Ivory)
+            Text(
+                "One notification at 7 PM about new puzzles or your streak",
+                style = MaterialTheme.typography.bodySmall,
+                color = AppColors.MutedText
+            )
+        }
+        Switch(
+            checked = enabled,
+            onCheckedChange = { on ->
+                EngagementPrefs(context).reminderAsked = true
+                if (on && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+                    ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+                ) {
+                    permission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                } else {
+                    enabled = on
+                    Reminders.setEnabled(context, on)
+                }
+            },
+            colors = SwitchDefaults.colors(checkedTrackColor = AppColors.Crimson)
+        )
+    }
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -99,6 +151,10 @@ fun SettingsScreen(
                         }
                     }
                 }
+
+                Spacer(Modifier.height(20.dp))
+                SectionLabel("Notifications")
+                ReminderToggle()
 
                 Spacer(Modifier.height(20.dp))
                 SectionLabel("Legal")

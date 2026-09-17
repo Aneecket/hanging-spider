@@ -23,13 +23,14 @@ import com.hangingspider.game.ui.theme.AppColors
 private const val CLUE_STRIKES = 3
 
 @Composable
-fun ClueMasterGame(onRoundEnd: (RoundResult) -> Unit) {
-    val puzzle = remember { ClueMasterPuzzle.generate() }
+fun ClueMasterGame(session: GameSession) {
+    val puzzle = remember { ClueMasterPuzzle.generate(session.random) }
     var revealed by remember { mutableStateOf(emptySet<String>()) }
     var clueGroup by remember { mutableIntStateOf(0) }
     var strikes by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("Tap the words that match the clue") }
     var over by remember { mutableStateOf(false) }
+    var allowedStrikes by remember { mutableIntStateOf(CLUE_STRIKES) }
 
     val agents = puzzle.cards.filter { it.role == ClueRole.AGENT }
     val foundAgents = agents.count { it.word in revealed }
@@ -43,27 +44,42 @@ fun ClueMasterGame(onRoundEnd: (RoundResult) -> Unit) {
     }
 
     fun reveal(card: ClueCard) {
-        if (over || card.word in revealed) return
+        if (over || session.paused || card.word in revealed) return
         revealed = revealed + card.word
         when (card.role) {
             ClueRole.TRAP -> {
                 over = true
-                onRoundEnd(RoundResult(false, "${card.word} was the trap word."))
+                session.end(RoundResult(false, "${card.word} was the trap word."))
             }
             ClueRole.NEUTRAL -> {
                 strikes++
-                if (strikes == CLUE_STRIKES) {
-                    over = true
-                    onRoundEnd(RoundResult(false, "Too many wrong guesses. You found $foundAgents of ${agents.size} secret words."))
-                } else {
-                    message = "${card.word} isn't one of yours"
-                    nextClue()
+                message = "${card.word} isn't one of yours"
+                nextClue()
+                if (strikes == allowedStrikes) {
+                    session.offerSecondChance(
+                        "Out of strikes!", "one more strike",
+                        onGranted = { allowedStrikes++ },
+                        onDeclined = {
+                            over = true
+                            session.end(RoundResult(false, "Too many wrong guesses. You found $foundAgents of ${agents.size} secret words."))
+                        }
+                    )
                 }
             }
             ClueRole.AGENT -> {
                 if (agents.all { it.word in revealed }) {
                     over = true
-                    onRoundEnd(RoundResult(true, "All ${agents.size} secret words found."))
+                    session.end(
+                        RoundResult(
+                            true,
+                            "All ${agents.size} secret words found.",
+                            stars = when (strikes) {
+                                0 -> 3
+                                1 -> 2
+                                else -> 1
+                            }
+                        )
+                    )
                 } else {
                     message = "${card.word} is one of yours!"
                     if (remainingIn(clueGroup) == 0) nextClue()
@@ -87,13 +103,13 @@ fun ClueMasterGame(onRoundEnd: (RoundResult) -> Unit) {
                 color = AppColors.Ivory,
                 modifier = Modifier.weight(1f)
             )
-            repeat(CLUE_STRIKES) {
+            repeat(allowedStrikes) {
                 Box(
                     Modifier
                         .padding(3.dp)
                         .size(10.dp)
                         .clip(CircleShape)
-                        .background(if (it < CLUE_STRIKES - strikes) AppColors.Signal else AppColors.Charcoal)
+                        .background(if (it < allowedStrikes - strikes) AppColors.Signal else AppColors.Charcoal)
                 )
             }
         }
@@ -155,7 +171,14 @@ fun ClueMasterGame(onRoundEnd: (RoundResult) -> Unit) {
         }
 
         Spacer(Modifier.weight(1f))
-        SecondaryButton("Next clue", { if (!over) { nextClue(); message = "New clue" } })
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HintButton("Hint · reveal a word", enabled = !over && !session.paused, onClick = {
+                session.requestHint {
+                    agents.firstOrNull { it.group == clueGroup && it.word !in revealed }?.let(::reveal)
+                }
+            })
+            SecondaryButton("Next clue", { if (!over) { nextClue(); message = "New clue" } })
+        }
         Spacer(Modifier.height(16.dp))
     }
 }

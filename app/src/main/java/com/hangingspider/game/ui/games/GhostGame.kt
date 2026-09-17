@@ -15,10 +15,11 @@ import com.hangingspider.game.game.engine.GhostRules
 import com.hangingspider.game.ui.theme.AppColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 @Composable
-fun GhostGame(onRoundEnd: (RoundResult) -> Unit) {
+fun GhostGame(session: GameSession) {
     var fragment by remember { mutableStateOf("") }
     var playerLosses by remember { mutableIntStateOf(0) }
     var spiderLosses by remember { mutableIntStateOf(0) }
@@ -27,6 +28,7 @@ fun GhostGame(onRoundEnd: (RoundResult) -> Unit) {
     var roundMessage by remember { mutableStateOf<String?>(null) }
     var status by remember { mutableStateOf("Your turn. Add any letter.") }
     var matchOver by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     fun endRound(playerLost: Boolean, why: String) {
         if (playerLost) playerLosses++ else spiderLosses++
@@ -34,17 +36,22 @@ fun GhostGame(onRoundEnd: (RoundResult) -> Unit) {
         if (playerLosses == GhostRules.LOSSES_TO_LOSE || spiderLosses == GhostRules.LOSSES_TO_LOSE) {
             matchOver = true
             val won = spiderLosses == GhostRules.LOSSES_TO_LOSE
-            onRoundEnd(
+            session.end(
                 RoundResult(
                     won,
-                    (if (won) "You beat the spider " else "The spider won ") + "${spiderLosses.coerceAtLeast(playerLosses)}–${minOf(spiderLosses, playerLosses)}. $why"
+                    (if (won) "You beat the spider " else "The spider won ") + "${spiderLosses.coerceAtLeast(playerLosses)}–${minOf(spiderLosses, playerLosses)}. $why",
+                    stars = when (playerLosses) {
+                        0 -> 3
+                        1 -> 2
+                        else -> 1
+                    }
                 )
             )
         }
     }
 
     fun playerMove(letter: Char) {
-        if (!playerTurn || roundMessage != null || matchOver) return
+        if (!playerTurn || roundMessage != null || matchOver || session.paused) return
         val next = fragment + letter
         fragment = next
         when (val outcome = GhostRules.outcome(next, WordLists.dictionary)) {
@@ -117,6 +124,20 @@ fun GhostGame(onRoundEnd: (RoundResult) -> Unit) {
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.weight(1f))
+        if (roundMessage == null && playerTurn && !matchOver) {
+            HintButton("Hint · safe letter", enabled = !session.paused, onClick = {
+                session.requestHint {
+                    val current = fragment
+                    scope.launch {
+                        val letter = withContext(Dispatchers.Default) {
+                            GhostRules.spiderMove(current, WordLists.dictionary, WordLists.common, mistakeRate = 0.0)
+                        }
+                        status = letter?.let { "Try adding $it" } ?: "Every letter loses here."
+                    }
+                }
+            })
+            Spacer(Modifier.height(8.dp))
+        }
         if (roundMessage != null && !matchOver) {
             PrimaryButton("Next round", ::nextRound)
             Spacer(Modifier.height(12.dp))

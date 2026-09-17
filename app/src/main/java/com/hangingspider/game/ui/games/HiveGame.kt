@@ -37,7 +37,7 @@ private val HexShape = GenericShape { size, _ ->
 }
 
 @Composable
-fun HiveGame(onRoundEnd: (RoundResult) -> Unit) {
+fun HiveGame(session: GameSession) {
     val puzzle by produceState<HivePuzzle?>(null) {
         value = withContext(Dispatchers.Default) { HivePuzzle.generate(WordLists.common) }
     }
@@ -47,12 +47,12 @@ fun HiveGame(onRoundEnd: (RoundResult) -> Unit) {
         }
         return
     }
-    HivePlay(ready, onRoundEnd)
+    HivePlay(ready, session)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun HivePlay(puzzle: HivePuzzle, onRoundEnd: (RoundResult) -> Unit) {
+private fun HivePlay(puzzle: HivePuzzle, session: GameSession) {
     var outer by remember { mutableStateOf(puzzle.outer) }
     var typed by remember { mutableStateOf("") }
     var found by remember { mutableStateOf(emptyList<String>()) }
@@ -61,7 +61,7 @@ private fun HivePlay(puzzle: HivePuzzle, onRoundEnd: (RoundResult) -> Unit) {
     var over by remember { mutableStateOf(false) }
 
     fun enter() {
-        if (over) return
+        if (over || session.paused) return
         val word = typed
         typed = ""
         val problem = puzzle.problemWith(word, WordLists.dictionary)
@@ -74,7 +74,14 @@ private fun HivePlay(puzzle: HivePuzzle, onRoundEnd: (RoundResult) -> Unit) {
                 score += points
                 if (score >= puzzle.goal) {
                     over = true
-                    onRoundEnd(RoundResult(true, "Reached $score points with ${found.size} words."))
+                    val pangram = found.any(puzzle::isPangram)
+                    session.end(
+                        RoundResult(
+                            true,
+                            "Reached $score points with ${found.size} words" + if (pangram) ", including a pangram." else ".",
+                            stars = if (pangram) 3 else 2
+                        )
+                    )
                 }
                 if (puzzle.isPangram(word)) "Pangram! +$points" else "$word +$points"
             }
@@ -124,7 +131,7 @@ private fun HivePlay(puzzle: HivePuzzle, onRoundEnd: (RoundResult) -> Unit) {
         Spacer(Modifier.height(16.dp))
 
         val cell = 76.dp
-        val onTap: (Char) -> Unit = { if (!over) typed += it }
+        val onTap: (Char) -> Unit = { if (!over && !session.paused) typed += it }
         // Rows overlap slightly so the hexagons sit like a honeycomb.
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -149,12 +156,19 @@ private fun HivePlay(puzzle: HivePuzzle, onRoundEnd: (RoundResult) -> Unit) {
             PrimaryButton("Enter", ::enter, enabled = typed.isNotEmpty())
         }
         Spacer(Modifier.height(8.dp))
-        SecondaryButton("Give up", {
-            if (!over) {
-                over = true
-                onRoundEnd(RoundResult(false, "You reached $score of ${puzzle.goal}. Pangram: ${puzzle.pangrams.first()}."))
-            }
-        })
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HintButton("Hint · show a word", enabled = !over && !session.paused, onClick = {
+                session.requestHint {
+                    (puzzle.targets - found.toSet()).filterNot(puzzle::isPangram).randomOrNull()?.let { message = "Try: $it" }
+                }
+            })
+            SecondaryButton("Give up", {
+                if (!over) {
+                    over = true
+                    session.end(RoundResult(false, "You reached $score of ${puzzle.goal}. Pangram: ${puzzle.pangrams.first()}."))
+                }
+            })
+        }
         Spacer(Modifier.height(16.dp))
     }
 }

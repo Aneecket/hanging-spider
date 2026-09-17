@@ -21,6 +21,9 @@ import com.hangingspider.game.game.engine.Cell
 import com.hangingspider.game.game.engine.LetterTiles
 import com.hangingspider.game.game.engine.Premium
 import com.hangingspider.game.ui.theme.AppColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 private val TileFace = Color(0xFFE9DCC4)
 private val TileFresh = Color(0xFFF5C76B)
@@ -42,7 +45,7 @@ private fun Premium.label(): String = when (this) {
 }
 
 @Composable
-fun LetterTilesGame(onRoundEnd: (RoundResult) -> Unit) {
+fun LetterTilesGame(session: GameSession) {
     val bag = remember { LetterTiles.newBag() }
     var rack by remember { mutableStateOf(List(LetterTiles.RACK) { bag.removeAt(bag.lastIndex) }) }
     var board by remember { mutableStateOf(mapOf<Cell, Char>()) }
@@ -52,6 +55,7 @@ fun LetterTilesGame(onRoundEnd: (RoundResult) -> Unit) {
     var score by remember { mutableIntStateOf(0) }
     var message by remember { mutableStateOf("Tap a tile, then a square. Start on the ★") }
     var over by remember { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
 
     val placedLetters = placed.mapValues { rack[it.value] }
     val preview = if (placed.isEmpty()) null else LetterTiles.evaluate(board, placedLetters, WordLists.dictionary)
@@ -63,17 +67,28 @@ fun LetterTilesGame(onRoundEnd: (RoundResult) -> Unit) {
         when {
             score >= LetterTiles.TARGET -> {
                 over = true
-                onRoundEnd(RoundResult(true, "Scored $score in ${turn - 1} turns."))
+                val used = turn - 1
+                session.end(
+                    RoundResult(
+                        true,
+                        "Scored $score in $used turns.",
+                        stars = when {
+                            used <= 5 -> 3
+                            used <= 7 -> 2
+                            else -> 1
+                        }
+                    )
+                )
             }
             turn > LetterTiles.TURNS || rack.isEmpty() -> {
                 over = true
-                onRoundEnd(RoundResult(false, "You scored $score of ${LetterTiles.TARGET}."))
+                session.end(RoundResult(false, "You scored $score of ${LetterTiles.TARGET}."))
             }
         }
     }
 
     fun play() {
-        if (over) return
+        if (over || session.paused) return
         val result = preview ?: return
         result.onFailure { message = it.message.orEmpty() }
         result.onSuccess { play ->
@@ -88,7 +103,7 @@ fun LetterTilesGame(onRoundEnd: (RoundResult) -> Unit) {
     }
 
     fun swap() {
-        if (over) return
+        if (over || session.paused) return
         if (bag.size < LetterTiles.RACK) {
             message = "Not enough tiles left to swap"
             return
@@ -135,7 +150,7 @@ fun LetterTilesGame(onRoundEnd: (RoundResult) -> Unit) {
                                 fixed = board[here],
                                 fresh = placed[here]?.let { rack[it] },
                                 onClick = {
-                                    if (over || here in board) return@BoardSquare
+                                    if (over || session.paused || here in board) return@BoardSquare
                                     val pick = selected
                                     placed = when {
                                         here in placed -> placed - here
@@ -163,6 +178,16 @@ fun LetterTilesGame(onRoundEnd: (RoundResult) -> Unit) {
             textAlign = TextAlign.Center
         )
         Spacer(Modifier.weight(1f))
+        HintButton("Hint · suggest a word", enabled = !over && !session.paused, onClick = {
+            session.requestHint {
+                val letters = rack
+                scope.launch {
+                    val word = withContext(Dispatchers.Default) { LetterTiles.suggestWord(letters, WordLists.common) }
+                    message = word?.let { "Try: $it" } ?: "No word found in these tiles. Try a swap."
+                }
+            }
+        })
+        Spacer(Modifier.height(10.dp))
 
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             rack.forEachIndexed { i, letter ->

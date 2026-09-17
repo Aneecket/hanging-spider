@@ -19,14 +19,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.text.style.TextAlign
+import com.hangingspider.game.ads.BannerAdSlot
 import com.hangingspider.game.data.model.LeaderboardEntry
+import com.hangingspider.game.game.AppDay
 import com.hangingspider.game.ui.theme.AppColors
 import com.hangingspider.game.ui.theme.AppGradients
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LeaderboardScreen(vm: LeaderboardViewModelHolder) {
-    val entries by vm.instance.entries.collectAsStateWithLifecycle()
+    val allTime by vm.instance.entries.collectAsStateWithLifecycle()
+    val weekly by vm.instance.weekly.collectAsStateWithLifecycle()
+    var showWeekly by rememberSaveable { mutableStateOf(true) }
+    val entries = if (showWeekly) weekly else allTime
 
     Box(
         modifier = Modifier
@@ -48,7 +56,8 @@ fun LeaderboardScreen(vm: LeaderboardViewModelHolder) {
                         containerColor = Color.Transparent
                     )
                 )
-            }
+            },
+            bottomBar = { BannerAdSlot() }
         ) { inner ->
             LazyColumn(
                 modifier = Modifier
@@ -59,11 +68,36 @@ fun LeaderboardScreen(vm: LeaderboardViewModelHolder) {
             ) {
                 item { Spacer(Modifier.height(4.dp)) }
                 item {
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(AppColors.Charcoal)
+                            .padding(4.dp)
+                    ) {
+                        listOf(true to "This week", false to "All time").forEach { (weeklyTab, label) ->
+                            val active = showWeekly == weeklyTab
+                            Text(
+                                label,
+                                style = MaterialTheme.typography.labelLarge,
+                                color = if (active) AppColors.Ivory else AppColors.MutedText,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (active) AppColors.Crimson else Color.Transparent)
+                                    .clickable { showWeekly = weeklyTab }
+                                    .padding(vertical = 8.dp)
+                            )
+                        }
+                    }
+                }
+                item {
                     Text(
-                        "The greatest word-binders in the web",
+                        if (showWeekly) "Points earned this week · resets in ${resetsIn()}" else "The greatest word-binders in the web",
                         style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
                         color = AppColors.Lavender,
-                        modifier = Modifier.padding(bottom = 14.dp, start = 4.dp)
+                        modifier = Modifier.padding(top = 10.dp, bottom = 14.dp, start = 4.dp)
                     )
                 }
                 if (entries.size >= 3) {
@@ -86,6 +120,11 @@ fun LeaderboardScreen(vm: LeaderboardViewModelHolder) {
             }
         }
     }
+}
+
+private fun resetsIn(): String {
+    val hours = AppDay.millisUntilNextWeek() / (60 * 60 * 1000)
+    return if (hours >= 24) "${hours / 24}d ${hours % 24}h" else "${hours}h"
 }
 
 class LeaderboardViewModelHolder(val instance: com.hangingspider.game.viewmodel.LeaderboardViewModel)

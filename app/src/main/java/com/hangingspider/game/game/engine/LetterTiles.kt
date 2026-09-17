@@ -61,6 +61,15 @@ object LetterTiles {
         }
     }
 
+    /** Highest-value everyday word that can be spelled from the rack, ignoring board position. */
+    fun suggestWord(rack: List<Char>, words: WordIndex): String? {
+        val have = rack.groupingBy { it }.eachCount()
+        return words.words
+            .filter { it.length in 3..rack.size }
+            .filter { w -> w.groupingBy { it }.eachCount().all { (ch, n) -> (have[ch] ?: 0) >= n } }
+            .maxByOrNull { w -> w.sumOf { values.getValue(it) } }
+    }
+
     fun isWord(word: String, dictionary: WordIndex): Boolean =
         if (word.length == 2) word in TWO_LETTER else dictionary.isWord(word)
 

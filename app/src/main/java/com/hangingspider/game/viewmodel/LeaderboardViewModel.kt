@@ -16,9 +16,15 @@ class LeaderboardViewModel(
     private val _entries = MutableStateFlow<List<LeaderboardEntry>>(emptyList())
     val entries: StateFlow<List<LeaderboardEntry>> = _entries
 
+    private val _weekly = MutableStateFlow<List<LeaderboardEntry>>(emptyList())
+    val weekly: StateFlow<List<LeaderboardEntry>> = _weekly
+
     init {
         viewModelScope.launch {
             repo.observeTop(20).collectLatest { _entries.value = it }
+        }
+        viewModelScope.launch {
+            repo.observeWeek().collectLatest { _weekly.value = it }
         }
     }
 }

@@ -31,7 +31,7 @@ private fun newPath(): PathSetup {
 }
 
 @Composable
-fun WordPathGame(onRoundEnd: (RoundResult) -> Unit) {
+fun WordPathGame(session: GameSession) {
     val setup by produceState<PathSetup?>(null) { value = withContext(Dispatchers.Default) { newPath() } }
     val ready = setup ?: run {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -39,16 +39,17 @@ fun WordPathGame(onRoundEnd: (RoundResult) -> Unit) {
         }
         return
     }
-    WordPathPlay(ready, onRoundEnd)
+    WordPathPlay(ready, session)
 }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun WordPathPlay(setup: PathSetup, onRoundEnd: (RoundResult) -> Unit) {
+private fun WordPathPlay(setup: PathSetup, session: GameSession) {
     var found by remember { mutableStateOf(emptySet<String>()) }
     var tracing by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("Words of 4+ letters") }
     var over by remember { mutableStateOf(false) }
+    var misses by remember { mutableIntStateOf(0) }
 
     val starFound = found.any(setup::isStar)
     val lengths = setup.targets.groupBy { minOf(it.length, STAR_LENGTH) }.toSortedMap()
@@ -86,7 +87,7 @@ private fun WordPathPlay(setup: PathSetup, onRoundEnd: (RoundResult) -> Unit) {
         Spacer(Modifier.height(10.dp))
         TraceBoard(
             board = setup.board,
-            enabled = !over,
+            enabled = !over && !session.paused,
             onPathChange = { tracing = setup.board.wordFor(it) },
             onSubmit = { path ->
                 val word = setup.board.wordFor(path)
@@ -98,12 +99,22 @@ private fun WordPathPlay(setup: PathSetup, onRoundEnd: (RoundResult) -> Unit) {
                         val done = found.size >= setup.needed && found.any(setup::isStar)
                         if (done) {
                             over = true
-                            onRoundEnd(RoundResult(true, "Found ${found.size} words including the star word."))
+                            session.end(
+                                RoundResult(
+                                    true,
+                                    "Found ${found.size} words including the star word.",
+                                    stars = when {
+                                        misses <= 3 -> 3
+                                        misses <= 8 -> 2
+                                        else -> 1
+                                    }
+                                )
+                            )
                         }
                         if (setup.isStar(word)) "★ Star word: $word" else word
                     }
                     WordLists.dictionary.isWord(word) -> "$word is a bonus word"
-                    else -> "$word isn't in the word list"
+                    else -> { misses++; "$word isn't in the word list" }
                 }
             }
         )
@@ -113,13 +124,20 @@ private fun WordPathPlay(setup: PathSetup, onRoundEnd: (RoundResult) -> Unit) {
                 Text(it, style = MaterialTheme.typography.labelLarge, color = if (setup.isStar(it)) AppColors.GoldBright else AppColors.Silver)
             }
         }
-        SecondaryButton("Give up", {
-            if (!over) {
-                over = true
-                val star = setup.targets.filter(setup::isStar).maxByOrNull { it.length }
-                onRoundEnd(RoundResult(false, "You found ${found.size} of ${setup.needed}." + (star?.let { " Star word: $it." } ?: "")))
-            }
-        })
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            HintButton("Hint · show a word", enabled = !over && !session.paused, onClick = {
+                session.requestHint {
+                    (setup.targets - found).filterNot(setup::isStar).randomOrNull()?.let { message = "Try: $it" }
+                }
+            })
+            SecondaryButton("Give up", {
+                if (!over) {
+                    over = true
+                    val star = setup.targets.filter(setup::isStar).maxByOrNull { it.length }
+                    session.end(RoundResult(false, "You found ${found.size} of ${setup.needed}." + (star?.let { " Star word: $it." } ?: "")))
+                }
+            })
+        }
         Spacer(Modifier.height(16.dp))
     }
 }

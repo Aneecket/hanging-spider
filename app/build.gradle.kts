@@ -16,8 +16,8 @@ android {
         applicationId = "com.hangingspider.game"
         minSdk = 24
         targetSdk = 36
-        versionCode = 19
-        versionName = "0.5.0"
+        versionCode = 20
+        versionName = "0.6.0"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -80,6 +80,7 @@ dependencies {
     implementation("androidx.activity:activity-compose:1.9.2")
     implementation("androidx.navigation:navigation-compose:2.8.0")
     implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")

@@ -25,7 +25,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Composable
-fun CrosswordGame(onRoundEnd: (RoundResult) -> Unit) {
+fun CrosswordGame(session: GameSession) {
     val puzzle by produceState<CrosswordPuzzle?>(null) {
         value = withContext(Dispatchers.Default) {
             val clues = WordBank.all.map { it.text to it.hint.replaceFirstChar { c -> c.uppercase() } }
@@ -38,24 +38,36 @@ fun CrosswordGame(onRoundEnd: (RoundResult) -> Unit) {
         }
         return
     }
-    CrosswordPlay(ready, onRoundEnd)
+    CrosswordPlay(ready, session)
 }
 
 @Composable
-private fun CrosswordPlay(puzzle: CrosswordPuzzle, onRoundEnd: (RoundResult) -> Unit) {
+private fun CrosswordPlay(puzzle: CrosswordPuzzle, session: GameSession) {
     var letters by remember { mutableStateOf(mapOf<Cell, Char>()) }
     var entry by remember { mutableStateOf(puzzle.entries.first()) }
     var cursor by remember { mutableStateOf(Cell(puzzle.entries.first().row, puzzle.entries.first().col)) }
     var over by remember { mutableStateOf(false) }
+    var wrongChecks by remember { mutableIntStateOf(0) }
 
     val allCells = puzzle.entries.flatMap { it.cells }.toSet()
     val full = allCells.all { it in letters }
     val wrong = if (full) allCells.filter { letters[it] != puzzle.solution[it.row][it.col] }.toSet() else emptySet()
 
     LaunchedEffect(full, wrong.isEmpty()) {
+        if (full && wrong.isNotEmpty()) wrongChecks++
         if (full && wrong.isEmpty() && !over) {
             over = true
-            onRoundEnd(RoundResult(true, "Grid complete!"))
+            session.end(
+                RoundResult(
+                    true,
+                    "Grid complete!",
+                    stars = when (wrongChecks) {
+                        0 -> 3
+                        1 -> 2
+                        else -> 1
+                    }
+                )
+            )
         }
     }
 
@@ -74,7 +86,7 @@ private fun CrosswordPlay(puzzle: CrosswordPuzzle, onRoundEnd: (RoundResult) -> 
     }
 
     fun type(ch: Char) {
-        if (over) return
+        if (over || session.paused) return
         letters = letters + (cursor to ch)
         val cells = entry.cells
         val after = cells.drop(cells.indexOf(cursor) + 1).firstOrNull { it !in letters }
@@ -154,16 +166,19 @@ private fun CrosswordPlay(puzzle: CrosswordPuzzle, onRoundEnd: (RoundResult) -> 
         ClueBar(entry, onPrev = { jump(-1) }, onNext = { jump(1) })
         Spacer(Modifier.height(6.dp))
         GameKeyboard(onLetter = ::type, onDelete = ::delete)
-        Spacer(Modifier.height(4.dp))
-        TextButton(onClick = {
-            if (!over) {
-                over = true
-                val solution = allCells.associateWith { puzzle.solution[it.row][it.col]!! }
-                letters = solution
-                onRoundEnd(RoundResult(false, "Answers revealed."))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            HintButton("Hint · this letter", enabled = !over && !session.paused, onClick = {
+                session.requestHint { type(puzzle.solution[cursor.row][cursor.col]!!) }
+            })
+            TextButton(onClick = {
+                if (!over) {
+                    over = true
+                    letters = allCells.associateWith { puzzle.solution[it.row][it.col]!! }
+                    session.end(RoundResult(false, "Answers revealed."))
+                }
+            }) {
+                Text("Give up", color = AppColors.MutedText)
             }
-        }) {
-            Text("Reveal answers", color = AppColors.MutedText)
         }
     }
 }
