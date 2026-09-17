@@ -116,15 +116,19 @@ class UserRepository {
             val displayName = user.displayName.orEmpty().ifBlank {
                 "Weaver_${user.uid.take(4).uppercase()}"
             }
-            val profile = UserProfile(
-                uid = user.uid,
-                displayName = displayName,
-                email = user.email.orEmpty(),
-                photoUrl = user.photoUrl?.toString().orEmpty(),
-                coins = 0,
-                createdAt = now,
-                lastDailyClaimAt = 0,
-                lastSeenAt = now
+            // `level` is left out; it is written separately once a level above 1 is unlocked.
+            val profile = mapOf(
+                "uid" to user.uid,
+                "displayName" to displayName,
+                "email" to user.email.orEmpty(),
+                "photoUrl" to (user.photoUrl?.toString().orEmpty()),
+                "coins" to 0L,
+                "createdAt" to now,
+                "lastDailyClaimAt" to 0L,
+                "lastSeenAt" to now,
+                "doublerUntil" to 0L,
+                "gamesPlayed" to 0,
+                "gamesWon" to 0
             )
             ref.setValue(profile).await()
         } else {
@@ -178,6 +182,10 @@ class UserRepository {
         val next = current + delta
         writeCoinDelta(uid, next)
         return next
+    }
+
+    suspend fun setLevel(uid: String, level: Int) {
+        userRef(uid).child("level").setValue(level).await()
     }
 
     suspend fun setDoublerUntil(uid: String, ts: Long) {

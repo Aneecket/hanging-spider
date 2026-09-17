@@ -92,67 +92,45 @@
         <label>Target user UID <span style="color:var(--ember)">*</span></label>
         <input id="msgUid" placeholder="Firebase Auth UID of the recipient" />
         <label>Title</label>
-        <input id="msgTitle" placeholder="Your gift card is here" />
+        <input id="msgTitle" placeholder="A note from the Hanging Spider team" />
         <label>Body</label>
-        <textarea id="msgBody" placeholder="Redemption fulfilled. Gift code: AMZ-XXXX-YYYY"></textarea>
+        <textarea id="msgBody" placeholder="Your message"></textarea>
         <button id="msgSend">Send whisper</button>
         <p id="msgStatus" class="status"></p>
       </div>
 
       <div class="card">
-        <h2>Award coins</h2>
+        <h2>Award points</h2>
         <label>User UID</label>
         <input id="coinsUid" placeholder="Firebase Auth UID" />
         <label>Amount</label>
         <input id="coinsAmount" type="number" min="1" placeholder="1000" />
         <label>Reason</label>
-        <input id="coinsReason" placeholder="Leaderboard #1 weekly prize" />
+        <input id="coinsReason" placeholder="Leaderboard bonus" />
         <button id="coinsSend">Grant</button>
         <p id="coinsStatus" class="status"></p>
-      </div>
-
-      <div class="card">
-        <h2>Log prize payout</h2>
-        <label>User UID</label>
-        <input id="prizeUid" placeholder="Firebase Auth UID" />
-        <label>Type</label>
-        <select id="prizeType">
-          <option value="amazon">Amazon voucher</option>
-          <option value="flipkart">Flipkart voucher</option>
-          <option value="usdt">USDT payout</option>
-          <option value="btc">BTC payout</option>
-          <option value="custom">Custom</option>
-        </select>
-        <label>Value / code / tx hash</label>
-        <input id="prizeValue" placeholder="AMZ-XXXX-YYYY or 0xtx..." />
-        <label>Internal note</label>
-        <input id="prizeNote" placeholder="For your own records" />
-        <button id="prizeSend">Log</button>
-        <p id="prizeStatus" class="status"></p>
-        <p class="status">Payout is done off-app (email voucher, on-chain send). This log is your audit trail.</p>
       </div>
 
       <div class="card">
         <h2>Live leaderboard</h2>
         <table>
           <thead>
-            <tr><th>#</th><th>Name</th><th>UID</th><th style="text-align:right">Coins</th></tr>
+            <tr><th>#</th><th>Name</th><th>UID</th><th style="text-align:right">Points</th></tr>
           </thead>
           <tbody id="lbBody"></tbody>
         </table>
       </div>
 
       <div class="card" style="grid-column: 1 / -1">
-        <h2>Pending cashouts</h2>
-        <p class="status">Buy the gift card from the requested store (Amazon.in or Flipkart.com), deliver to the user's email. Paste the confirmation code, click Fulfill.</p>
+        <h2>Old cash-out requests</h2>
+        <p class="status">Cash-out has been removed from the app. Refund any request still pending so the player gets their points back.</p>
         <table>
           <thead>
             <tr>
-              <th>Requested</th><th>User</th><th>Reward</th><th>Coins</th>
-              <th>Email</th><th>Gift code</th><th></th>
+              <th>Requested</th><th>User</th><th>Reward</th><th>Points</th><th></th>
             </tr>
           </thead>
-          <tbody id="cashBody"><tr><td colspan="7" class="status">No pending requests.</td></tr></tbody>
+          <tbody id="cashBody"><tr><td colspan="5" class="status">No pending requests.</td></tr></tbody>
         </table>
         <details style="margin-top:14px">
           <summary style="cursor:pointer;color:var(--muted);font-size:12px">Show fulfilled + rejected history</summary>
@@ -257,19 +235,6 @@ document.getElementById("coinsSend").onclick = async () => {
   } catch (e) { status(coinsStatus, e.message, "err"); }
 };
 
-document.getElementById("prizeSend").onclick = async () => {
-  try {
-    const uid = prizeUid.value.trim();
-    if (!uid || !prizeValue.value.trim()) throw new Error("UID and value required.");
-    const prizeRef = push(ref(db, `prizes/${uid}`));
-    await set(prizeRef, {
-      type: prizeType.value, value: prizeValue.value, note: prizeNote.value,
-      grantedBy: auth.currentUser.uid, at: Date.now()
-    });
-    status(prizeStatus, "Logged · id " + prizeRef.key, "ok");
-  } catch (e) { status(prizeStatus, e.message, "err"); }
-};
-
 function bindLeaderboard() {
   const q = query(ref(db, "leaderboard"), orderByChild("coins"), limitToLast(20));
   onValue(q, (snap) => {
@@ -309,7 +274,7 @@ function bindCashouts() {
 
 function renderPending(rows) {
   if (rows.length === 0) {
-    cashBody.innerHTML = `<tr><td colspan="7" class="status">No pending requests.</td></tr>`;
+    cashBody.innerHTML = `<tr><td colspan="5" class="status">No pending requests.</td></tr>`;
     return;
   }
   cashBody.innerHTML = rows.map(r => `
@@ -318,14 +283,8 @@ function renderPending(rows) {
       <td style="font-family:monospace;font-size:11px">${escape(r.uid.slice(0,8))}…</td>
       <td class="gold">${escape(r.displayLabel)}</td>
       <td>${r.coins}</td>
-      <td style="font-size:12px">${escape(r.email)}</td>
-      <td><input class="giftCodeInput" placeholder="${r.provider === 'FLIPKART' ? 'FK-XXXX-YYYY' : 'AMZ-XXXX-YYYY'}" style="min-width:140px" /></td>
-      <td>
-        <button class="fulfillBtn" style="margin:0">Fulfill</button>
-        <button class="ghost rejectBtn" style="margin:2px 0 0">Reject</button>
-      </td>
+      <td><button class="rejectBtn" style="margin:0">Refund</button></td>
     </tr>`).join("");
-  cashBody.querySelectorAll(".fulfillBtn").forEach(b => b.onclick = onFulfill);
   cashBody.querySelectorAll(".rejectBtn").forEach(b => b.onclick = onReject);
 }
 
@@ -340,37 +299,11 @@ function renderHistory(rows) {
     </tr>`).join("");
 }
 
-async function onFulfill(e) {
-  const tr = e.target.closest("tr");
-  const uid = tr.dataset.uid, id = tr.dataset.id;
-  const code = tr.querySelector(".giftCodeInput").value.trim();
-  if (!code) { alert("Paste the gift code before fulfilling."); return; }
-  try {
-    // Load the request to grab the display label for the whisper.
-    const reqSnap = await get(ref(db, `cashouts/${uid}/${id}`));
-    const req = reqSnap.val() || {};
-    // Mark fulfilled, then push a personal whisper to the user's inbox.
-    await update(ref(db, `cashouts/${uid}/${id}`), {
-      status: "fulfilled",
-      giftCode: code,
-      fulfilledAt: Date.now()
-    });
-    const redeemUrl = req.provider === "FLIPKART"
-      ? "flipkart.com/pages/giftcard"
-      : "amazon.in/gc/redeem";
-    await sendWhisper(
-      uid,
-      `Your ${req.displayLabel || "gift card"} is here`,
-      `Redemption fulfilled. Gift code: ${code}\n\nRedeem at ${redeemUrl}`
-    );
-  } catch (err) { alert("Fulfill failed: " + err.message); }
-}
-
 async function onReject(e) {
   const tr = e.target.closest("tr");
   const uid = tr.dataset.uid, id = tr.dataset.id;
-  const note = prompt("Reason for rejecting (optional):") || "";
-  if (!confirm("Reject this cashout and REFUND the coins to the user?")) return;
+  const note = prompt("Note for the player (optional):") || "";
+  if (!confirm("Refund this request and return the points to the player?")) return;
   try {
     // Read coins currently owed and current user balance, then multi-path write:
     // status → rejected + refund coins → user.coins + leaderboard.coins
@@ -390,10 +323,10 @@ async function onReject(e) {
     });
     await sendWhisper(
       uid,
-      `Your ${reqSnap.val()?.displayLabel || "cashout"} could not be fulfilled`,
-      `Your coins have been refunded.${note ? `\n\nReason: ${note}` : ""}`
+      `Your ${reqSnap.val()?.displayLabel || "cash-out"} request was refunded`,
+      `Cash-out is no longer available, so ${owed} points have been returned to your balance.${note ? `\n\n${note}` : ""}`
     );
-  } catch (err) { alert("Reject failed: " + err.message); }
+  } catch (err) { alert("Refund failed: " + err.message); }
 }
 </script>
 </body>

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.hangingspider.game.data.model.UserProfile
 import com.hangingspider.game.data.repo.UserRepository
+import com.hangingspider.game.game.Levels
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,7 +13,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
 /**
- * Coin economy state and rules.
+ * Points economy and level state. Points are stored under the legacy `coins` field.
  *
  * Idle accrual runs client-side while the app is in the foreground. The client
  * batches accrued coins and pushes to Firebase every [SYNC_INTERVAL_MS]. Server-side
@@ -30,55 +31,30 @@ class CoinViewModel(
         const val DAILY_REWARD = 300L
         const val WIN_REWARD = 50L
         const val WATCH_AD_DOUBLER_MS = 10L * 60L * 1000L // 10 min
-        const val GAMES_PER_INTERSTITIAL = 3
-        const val PLAY_AGAIN_STREAK_FOR_AD = 4
     }
 
     private val _profile = MutableStateFlow<UserProfile?>(null)
     val profile: StateFlow<UserProfile?> = _profile
+
+    private val _level = MutableStateFlow(1)
+    val level: StateFlow<Int> = _level
 
     private val _events = MutableStateFlow<CoinEvent?>(null)
     val events: StateFlow<CoinEvent?> = _events
 
     private var accrualJob: Job? = null
     private var pendingAccrual = 0L
-    private var gamesSinceInterstitial = 0
-    private var playAgainStreak = 0
-
-    /**
-     * Called from the game screen when a round finishes (win or loss). Returns true
-     * every [GAMES_PER_INTERSTITIAL] calls so the caller shows an interstitial ad
-     * and skips it otherwise. Counter lives only in memory — resetting on process
-     * death is intentional so a churn of relaunches doesn't stack ads.
-     */
-    fun onGameEndedShouldShowAd(): Boolean {
-        gamesSinceInterstitial++
-        return if (gamesSinceInterstitial >= GAMES_PER_INTERSTITIAL) {
-            gamesSinceInterstitial = 0
-            true
-        } else false
-    }
-
-    /**
-     * Tracks the "Play again" streak inside a single game screen visit. Returns
-     * true every [PLAY_AGAIN_STREAK_FOR_AD] taps so the caller shows an
-     * interstitial before the next round; false otherwise. Reset the streak
-     * with [resetPlayAgainStreak] on exit or Return home so the count starts
-     * fresh next time the player enters the game screen.
-     */
-    fun onPlayAgainShouldShowAd(): Boolean {
-        playAgainStreak++
-        return if (playAgainStreak >= PLAY_AGAIN_STREAK_FOR_AD) {
-            playAgainStreak = 0
-            true
-        } else false
-    }
-
-    fun resetPlayAgainStreak() { playAgainStreak = 0 }
 
     init {
         viewModelScope.launch {
-            repo.observeProfile(uid).collectLatest { _profile.value = it }
+            repo.observeProfile(uid).collectLatest { p ->
+                _profile.value = p
+                if (p == null) return@collectLatest
+                // Unlocked level never drops, even when points are spent on hints.
+                val unlocked = maxOf(p.level, Levels.levelForPoints(p.coins))
+                _level.value = unlocked
+                if (unlocked > p.level) runCatching { repo.setLevel(uid, unlocked) }
+            }
         }
     }
 

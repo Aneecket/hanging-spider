@@ -27,7 +27,7 @@
         <!-- AdMob — test app ID (swap for production before release). -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-5452237321152820~9923172144" />
+            android:value="ca-app-pub-2809967663906076~8669686258" />
 
         <!-- FCM for admin push notifications. -->
         <meta-data

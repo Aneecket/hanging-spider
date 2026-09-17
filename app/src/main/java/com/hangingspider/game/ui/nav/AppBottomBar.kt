@@ -18,8 +18,6 @@ import com.hangingspider.game.ui.theme.AppColors
 
 data class BottomTab(val route: String, val label: String, val glyph: String)
 
-// Market tab intentionally hidden until Blaze + crypto policy decisions are made.
-// Re-add `BottomTab(Routes.BUY, "Market", "◉")` once Coinbase Commerce is live.
 private val Tabs = listOf(
     BottomTab(Routes.HOME, "Home", "◆"),
     BottomTab(Routes.LEADERBOARD, "Leaders", "♛"),

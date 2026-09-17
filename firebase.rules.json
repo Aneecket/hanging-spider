@@ -9,6 +9,7 @@
         "lastDailyClaimAt": { ".validate": "newData.isNumber()" },
         "gamesPlayed":   { ".validate": "newData.isNumber() && (!data.exists() || newData.val() >= data.val())" },
         "gamesWon":      { ".validate": "newData.isNumber() && (!data.exists() || newData.val() >= data.val())" },
+        "level":         { ".validate": "newData.isNumber() && newData.val() >= 1 && (!data.exists() || newData.val() >= data.val())" },
         "email":         { ".validate": "newData.isString()" },
         "displayName":   { ".validate": "newData.isString()" },
         "photoUrl":      { ".validate": "newData.isString()" },
@@ -66,7 +67,7 @@
       "$uid": {
         ".read": "auth != null && (auth.uid == $uid || root.child('admins').child(auth.uid).exists())",
         "$requestId": {
-          ".write": "(auth != null && auth.uid == $uid && !data.exists() && newData.child('status').val() == 'pending') || (auth != null && root.child('admins').child(auth.uid).exists())",
+          ".write": "auth != null && root.child('admins').child(auth.uid).exists()",
           "id":           { ".validate": "newData.val() == $requestId" },
           "rewardId":     { ".validate": "newData.isString() && newData.val().length <= 40" },
           "displayLabel": { ".validate": "newData.isString() && newData.val().length <= 80" },

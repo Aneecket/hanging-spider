@@ -81,7 +81,7 @@ fun SettingsScreen(
                 } else {
                     SettingsRow(
                         title = if (authState.linking) "Opening Google…" else "Sync with Google",
-                        subtitle = "Save your coins to your Google account so you can play on another device",
+                        subtitle = "Save your points and level to your Google account so you can play on another device",
                         onClick = { if (!authState.linking) authVm.linkWithGoogle(context) }
                     )
                     authState.linkError?.let {
@@ -109,7 +109,7 @@ fun SettingsScreen(
                 )
                 SettingsRow(
                     title = "Terms of Service",
-                    subtitle = "Rules, coins, cash-out policy",
+                    subtitle = "Rules, points and fair play",
                     onClick = onOpenTerms
                 )
 
@@ -122,7 +122,7 @@ fun SettingsScreen(
                 )
                 SettingsRow(
                     title = "Delete my account",
-                    subtitle = "Permanently remove your profile, coins, and history",
+                    subtitle = "Permanently remove your profile, points, level and history",
                     destructive = true,
                     onClick = { confirmDelete = true }
                 )
@@ -156,15 +156,9 @@ fun SettingsScreen(
             text = {
                 Column {
                     Text(
-                        "This wipes your profile, coin balance, games played, leaderboard rank, in-app messages and cash-out history. It cannot be undone.",
+                        "This wipes your profile, points, level, games played, leaderboard rank and in-app messages. It cannot be undone.",
                         style = MaterialTheme.typography.bodyMedium,
                         color = AppColors.IvoryDim
-                    )
-                    Spacer(Modifier.height(10.dp))
-                    Text(
-                        "Pending cash-outs will be cancelled without refund.",
-                        style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
-                        color = AppColors.Rose
                     )
                 }
             },

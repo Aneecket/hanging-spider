@@ -6,14 +6,14 @@ import com.hangingspider.game.game.WordBank
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-class GameViewModel : ViewModel() {
+class GameViewModel(startLevel: Int = 1) : ViewModel() {
 
     companion object {
         const val MAX_WRONG = 6
         const val HINT_COST = 10L
     }
 
-    private val _state = MutableStateFlow(freshState())
+    private val _state = MutableStateFlow(freshState(startLevel))
     val state: StateFlow<GameState> = _state
 
     fun guess(letter: Char) {
@@ -56,15 +56,16 @@ class GameViewModel : ViewModel() {
         return s.status == GameStatus.PLAYING && (s.word.text.toSet() - s.guessed).isNotEmpty()
     }
 
-    fun reset() { _state.value = freshState() }
+    fun reset(level: Int) { _state.value = freshState(level) }
 
-    private fun freshState(): GameState =
-        GameState(word = WordBank.random(), guessed = emptySet(), wrong = 0, status = GameStatus.PLAYING)
+    private fun freshState(level: Int): GameState =
+        GameState(level = level, word = WordBank.random(level), guessed = emptySet(), wrong = 0, status = GameStatus.PLAYING)
 }
 
 enum class GameStatus { PLAYING, WON, LOST }
 
 data class GameState(
+    val level: Int,
     val word: Word,
     val guessed: Set<Char>,
     val wrong: Int,

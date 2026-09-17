@@ -24,8 +24,8 @@ import com.hangingspider.game.BuildConfig
  * Test IDs: https://developers.google.com/admob/android/test-ads
  */
 object AdUnits {
-    private const val PROD_REWARDED = "ca-app-pub-5452237321152820/7209378898"
-    private const val PROD_INTERSTITIAL = "ca-app-pub-5452237321152820/2723338973"
+    private const val PROD_REWARDED = "ca-app-pub-2809967663906076/4011511080"
+    private const val PROD_INTERSTITIAL = "ca-app-pub-2809967663906076/9504702889"
     private const val TEST_REWARDED = "ca-app-pub-3940256099942544/5224354917"
     private const val TEST_INTERSTITIAL = "ca-app-pub-3940256099942544/1033173712"
 

@@ -172,7 +172,7 @@ private fun PodiumTile(rank: Int, entry: LeaderboardEntry, height: androidx.comp
                     color = if (highlighted) AppColors.PlumDeep else AppColors.Ivory
                 )
                 Text(
-                    "coins",
+                    "points",
                     style = MaterialTheme.typography.labelMedium.copy(fontSize = 10.sp),
                     color = if (highlighted) AppColors.PlumDeep.copy(alpha = 0.7f) else AppColors.MutedText
                 )

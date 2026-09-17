@@ -1,5 +1,6 @@
 package com.hangingspider.game.ui.screens
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.*
 import androidx.compose.animation.fadeIn
@@ -37,11 +38,13 @@ import com.hangingspider.game.viewmodel.GameViewModel
 @Composable
 fun GameScreen(
     coinVm: CoinViewModel,
-    onExit: () -> Unit,
-    onReplay: (proceed: () -> Unit) -> Unit = { it() },
-    gameVm: GameViewModel = viewModel()
+    onExit: () -> Unit
 ) {
+    val gameVm: GameViewModel = viewModel(factory = GameVmFactory(coinVm.level.value))
     val state by gameVm.state.collectAsStateWithLifecycle()
+    val level by coinVm.level.collectAsStateWithLifecycle()
+
+    BackHandler(onBack = onExit)
 
     LaunchedEffect(state.status) {
         if (state.status == GameStatus.WON) coinVm.onGameFinished(won = true)
@@ -66,7 +69,7 @@ fun GameScreen(
                 CenterAlignedTopAppBar(
                     title = {
                         Text(
-                            "THE HUNT",
+                            "LEVEL ${state.level}",
                             style = MaterialTheme.typography.headlineMedium,
                             color = AppColors.GoldBright
                         )
@@ -127,7 +130,8 @@ fun GameScreen(
                     ResultPanel(
                         won = state.status == GameStatus.WON,
                         word = state.word.text,
-                        onReplay = { onReplay { gameVm.reset() } },
+                        unlockedLevel = level.takeIf { it > state.level },
+                        onReplay = { gameVm.reset(level) },
                         onExit = onExit
                     )
                     Spacer(Modifier.height(16.dp))
@@ -288,7 +292,7 @@ private fun HintButton(
     ) {
         TextButton(onClick = onReveal, enabled = enabled) {
             Text(
-                "✦  Reveal a letter · $cost coins",
+                "✦  Reveal a letter · $cost points",
                 color = if (enabled) AppColors.Ivory else AppColors.MutedText,
                 style = MaterialTheme.typography.labelLarge
             )
@@ -372,7 +376,7 @@ private fun Key(letter: Char, used: Boolean, width: androidx.compose.ui.unit.Dp,
 }
 
 @Composable
-private fun ResultPanel(won: Boolean, word: String, onReplay: () -> Unit, onExit: () -> Unit) {
+private fun ResultPanel(won: Boolean, word: String, unlockedLevel: Int?, onReplay: () -> Unit, onExit: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -381,6 +385,14 @@ private fun ResultPanel(won: Boolean, word: String, onReplay: () -> Unit, onExit
             .padding(18.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        if (unlockedLevel != null) {
+            Text(
+                "LEVEL $unlockedLevel UNLOCKED",
+                style = MaterialTheme.typography.labelLarge.copy(letterSpacing = 2.sp),
+                color = AppColors.Signal
+            )
+            Spacer(Modifier.height(6.dp))
+        }
         Text(
             if (won) "V I C T O R Y" else "F A L L E N",
             style = MaterialTheme.typography.displayMedium.copy(fontSize = 24.sp),
@@ -414,4 +426,10 @@ private fun ResultPanel(won: Boolean, word: String, onReplay: () -> Unit, onExit
             }
         }
     }
+}
+
+private class GameVmFactory(private val level: Int) : androidx.lifecycle.ViewModelProvider.Factory {
+    @Suppress("UNCHECKED_CAST")
+    override fun <T : androidx.lifecycle.ViewModel> create(modelClass: Class<T>): T =
+        GameViewModel(level) as T
 }

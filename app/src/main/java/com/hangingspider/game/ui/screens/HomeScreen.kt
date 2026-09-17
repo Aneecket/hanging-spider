@@ -24,6 +24,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.hangingspider.game.game.Levels
 import com.hangingspider.game.ui.theme.AppColors
 import com.hangingspider.game.ui.theme.AppGradients
 import com.hangingspider.game.viewmodel.AuthViewModel
@@ -37,20 +38,20 @@ fun HomeScreen(
     authVm: AuthViewModel,
     onPlay: () -> Unit,
     onWatchAdForDoubler: () -> Unit,
-    onCashout: () -> Unit,
     onSettings: () -> Unit
 ) {
     val profile by coinVm.profile.collectAsStateWithLifecycle()
+    val level by coinVm.level.collectAsStateWithLifecycle()
     val event by coinVm.events.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(event) {
         val e = event ?: return@LaunchedEffect
         val msg = when (e) {
-            is CoinEvent.DailyClaimed -> "Blessing received: +${e.amount} coins"
+            is CoinEvent.DailyClaimed -> "Blessing received: +${e.amount} points"
             CoinEvent.DailyOnCooldown -> "The moon rests. Return later for your daily blessing."
             is CoinEvent.DoublerActivated -> "The oracle grants you doubled bounty for 10 minutes"
-            is CoinEvent.GameResult -> if (e.won) "Victory! +${e.awarded} coins" else "The spider claims this round"
+            is CoinEvent.GameResult -> if (e.won) "Victory! +${e.awarded} points" else "The spider claims this round"
         }
         snackbar.showSnackbar(msg)
         coinVm.consumeEvent()
@@ -121,16 +122,20 @@ fun HomeScreen(
 
                 TitleBlock()
 
-                Spacer(Modifier.height(20.dp))
+                Spacer(Modifier.height(16.dp))
 
-                PlayButton(onClick = onPlay)
+                LevelCard(level = level, points = profile?.coins)
+
+                Spacer(Modifier.height(14.dp))
+
+                // Wait for the profile so the first word matches the player's real level.
+                PlayButton(onClick = { if (profile != null) onPlay() })
 
                 Spacer(Modifier.height(14.dp))
 
                 ActionChips(
                     onDaily = { coinVm.claimDaily() },
-                    onBounty = onWatchAdForDoubler,
-                    onCashout = onCashout
+                    onBounty = onWatchAdForDoubler
                 )
 
                 Spacer(Modifier.height(20.dp))
@@ -332,13 +337,57 @@ private fun TitleBlock() {
     )
     Spacer(Modifier.height(4.dp))
     Text(
-        "bind the beast · earn the bounty",
+        "guess words · earn points · unlock levels",
         style = MaterialTheme.typography.bodySmall.copy(
             fontStyle = FontStyle.Italic,
             letterSpacing = 1.sp
         ),
         color = AppColors.Signal.copy(alpha = 0.9f)
     )
+}
+
+@Composable
+private fun LevelCard(level: Int, points: Long?) {
+    val next = Levels.pointsToUnlock(level + 1)
+    val have = points ?: 0L
+    val progress = (have.toFloat() / next).coerceIn(0f, 1f)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(AppColors.CharcoalMid.copy(alpha = 0.85f))
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                "LEVEL $level",
+                style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 2.sp),
+                color = AppColors.GoldBright
+            )
+            Spacer(Modifier.weight(1f))
+            Text(
+                if (points == null) "—" else "${formatCoins(have)} / ${formatCoins(next)} points",
+                style = MaterialTheme.typography.labelMedium,
+                color = AppColors.IvoryDim
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        LinearProgressIndicator(
+            progress = { progress },
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(6.dp)
+                .clip(RoundedCornerShape(50)),
+            color = AppColors.Signal,
+            trackColor = AppColors.Coal
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Reach ${formatCoins(next)} points to unlock Level ${level + 1}",
+            style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
+            color = AppColors.MutedText
+        )
+    }
 }
 
 @Composable
@@ -371,8 +420,7 @@ private fun PlayButton(onClick: () -> Unit) {
 @Composable
 private fun ActionChips(
     onDaily: () -> Unit,
-    onBounty: () -> Unit,
-    onCashout: () -> Unit
+    onBounty: () -> Unit
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -380,7 +428,6 @@ private fun ActionChips(
     ) {
         ActionChip(label = "Daily\nrewards", accent = AppColors.GoldBright, icon = "☀",  onClick = onDaily)
         ActionChip(label = "2x\nrewards",    accent = AppColors.Signal,     icon = "✦",  onClick = onBounty)
-        ActionChip(label = "Cash\nout",      accent = AppColors.GoldBright, icon = "◈",  onClick = onCashout)
     }
 }
 

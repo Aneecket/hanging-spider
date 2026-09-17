@@ -21,10 +21,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.hangingspider.game.ads.AdManager
-import com.google.firebase.auth.FirebaseAuth
 import com.hangingspider.game.ui.screens.AuthScreen
-import com.hangingspider.game.ui.screens.BuyCoinsScreen
-import com.hangingspider.game.ui.screens.CashoutScreen
 import com.hangingspider.game.ui.screens.GameScreen
 import com.hangingspider.game.ui.screens.HomeScreen
 import com.hangingspider.game.ui.screens.LeaderboardScreen
@@ -43,8 +40,6 @@ object Routes {
     const val GAME = "game"
     const val LEADERBOARD = "leaderboard"
     const val MESSAGES = "messages"
-    const val BUY = "buy"
-    const val CASHOUT = "cashout"
     const val SETTINGS = "settings"
     const val PRIVACY = "privacy"
     const val TERMS = "terms"
@@ -65,11 +60,11 @@ fun AppNav() {
 
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route ?: Routes.AUTH
-    val showBottomBar = currentRoute in setOf(Routes.HOME, Routes.LEADERBOARD, Routes.MESSAGES, Routes.BUY)
+    val showBottomBar = currentRoute in setOf(Routes.HOME, Routes.LEADERBOARD, Routes.MESSAGES)
 
     // Hoist CoinViewModel to activity scope so every screen shares one instance
-    // (and its live Firebase observer) — otherwise CashoutScreen etc. spin up a
-    // second VM that hasn't loaded coins yet.
+    // (and its live Firebase observer) — otherwise each screen spins up a
+    // second VM that hasn't loaded points yet.
     val coinVm: CoinViewModel? = state.uid?.let { uid ->
         viewModel(key = "coin-$uid", factory = CoinVmFactory(uid))
     }
@@ -95,18 +90,7 @@ fun AppNav() {
                         val act = context as? android.app.Activity ?: return@HomeScreen
                         adManager.showRewarded(act) { vm.activateDoubler() }
                     },
-                    onCashout = { nav.navigate(Routes.CASHOUT) },
                     onSettings = { nav.navigate(Routes.SETTINGS) }
-                )
-            }
-            composable(Routes.CASHOUT) {
-                val uid = state.uid ?: return@composable
-                val vm = coinVm ?: return@composable
-                CashoutScreen(
-                    uid = uid,
-                    email = FirebaseAuth.getInstance().currentUser?.email.orEmpty(),
-                    coinVm = vm,
-                    onExit = { nav.popBackStack() }
                 )
             }
             composable(Routes.GAME) {
@@ -114,24 +98,14 @@ fun AppNav() {
                 GameScreen(
                     coinVm = vm,
                     onExit = {
-                        vm.resetPlayAgainStreak()
-                        val act = context as? android.app.Activity
-                        if (act != null) {
-                            vm.stopIdleAccrual()
-                            adManager.showInterstitial(act, onDismissed = { vm.startIdleAccrual() })
-                        }
-                        nav.popBackStack()
-                    },
-                    onReplay = { proceed ->
-                        val act = context as? android.app.Activity
-                        if (act != null && vm.onPlayAgainShouldShowAd()) {
-                            vm.stopIdleAccrual()
-                            adManager.showInterstitial(act, onDismissed = {
-                                vm.startIdleAccrual()
-                                proceed()
-                            })
-                        } else {
-                            proceed()
+                        // Ignore repeat taps while the pop is in flight so one exit shows one ad.
+                        if (nav.currentBackStackEntry?.destination?.route == Routes.GAME) {
+                            val act = context as? android.app.Activity
+                            if (act != null) {
+                                vm.stopIdleAccrual()
+                                adManager.showInterstitial(act, onDismissed = { vm.startIdleAccrual() })
+                            }
+                            nav.popBackStack()
                         }
                     }
                 )
@@ -142,10 +116,6 @@ fun AppNav() {
             composable(Routes.MESSAGES) {
                 val uid = state.uid ?: return@composable
                 MessagesScreen(vm = rememberMessagesHolder(uid))
-            }
-            composable(Routes.BUY) {
-                val uid = state.uid ?: return@composable
-                BuyCoinsScreen(uid = uid)
             }
             composable(Routes.SETTINGS) {
                 SettingsScreen(

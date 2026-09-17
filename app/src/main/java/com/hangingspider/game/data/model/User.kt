@@ -11,5 +11,6 @@ data class UserProfile(
     val lastSeenAt: Long = 0,
     val doublerUntil: Long = 0,
     val gamesPlayed: Int = 0,
-    val gamesWon: Int = 0
+    val gamesWon: Int = 0,
+    val level: Int = 1
 )
