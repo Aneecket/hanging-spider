@@ -201,16 +201,19 @@ class UserRepository {
         return true
     }
 
-    suspend fun recordGameResult(uid: String, won: Boolean, coinsAwarded: Long) {
+    /** Returns the new points balance, or null if the profile is missing. */
+    suspend fun recordGameResult(uid: String, won: Boolean, coinsAwarded: Long): Long? {
         val snap = userRef(uid).get().await()
-        val p = snap.getValue<UserProfile>() ?: return
+        val p = snap.getValue<UserProfile>() ?: return null
+        val newCoins = p.coins + coinsAwarded
         writeCoinDelta(
             uid = uid,
-            newCoins = p.coins + coinsAwarded,
+            newCoins = newCoins,
             extra = mapOf(
                 "gamesPlayed" to (p.gamesPlayed + 1),
                 "gamesWon" to (p.gamesWon + if (won) 1 else 0)
             )
         )
+        return newCoins
     }
 }

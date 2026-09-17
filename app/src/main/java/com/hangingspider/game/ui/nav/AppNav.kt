@@ -22,7 +22,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.hangingspider.game.ads.AdManager
 import com.hangingspider.game.ui.screens.AuthScreen
-import com.hangingspider.game.ui.screens.GameScreen
+import com.hangingspider.game.ui.games.GameHost
+import com.hangingspider.game.ui.screens.LevelsScreen
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
+import com.hangingspider.game.game.WordLists
 import com.hangingspider.game.ui.screens.HomeScreen
 import com.hangingspider.game.ui.screens.LeaderboardScreen
 import com.hangingspider.game.ui.screens.LegalDoc
@@ -37,7 +41,10 @@ import com.hangingspider.game.viewmodel.CoinViewModel
 object Routes {
     const val AUTH = "auth"
     const val HOME = "home"
-    const val GAME = "game"
+    const val GAME = "game/{level}"
+    const val LEVELS = "levels"
+
+    fun game(level: Int) = "game/$level"
     const val LEADERBOARD = "leaderboard"
     const val MESSAGES = "messages"
     const val SETTINGS = "settings"
@@ -56,11 +63,12 @@ fun AppNav() {
     LaunchedEffect(Unit) {
         adManager.preloadRewarded()
         adManager.preloadInterstitial()
+        WordLists.load(context.applicationContext)
     }
 
     val backStack by nav.currentBackStackEntryAsState()
     val currentRoute = backStack?.destination?.route ?: Routes.AUTH
-    val showBottomBar = currentRoute in setOf(Routes.HOME, Routes.LEADERBOARD, Routes.MESSAGES)
+    val showBottomBar = currentRoute in setOf(Routes.HOME, Routes.LEVELS, Routes.LEADERBOARD, Routes.MESSAGES)
 
     // Hoist CoinViewModel to activity scope so every screen shares one instance
     // (and its live Firebase observer) — otherwise each screen spins up a
@@ -85,7 +93,7 @@ fun AppNav() {
                 HomeScreen(
                     coinVm = vm,
                     authVm = authVm,
-                    onPlay = { nav.navigate(Routes.GAME) },
+                    onPlay = { nav.navigate(Routes.game(vm.level.value)) },
                     onWatchAdForDoubler = {
                         val act = context as? android.app.Activity ?: return@HomeScreen
                         adManager.showRewarded(act) { vm.activateDoubler() }
@@ -93,9 +101,18 @@ fun AppNav() {
                     onSettings = { nav.navigate(Routes.SETTINGS) }
                 )
             }
-            composable(Routes.GAME) {
+            composable(Routes.LEVELS) {
                 val vm = coinVm ?: return@composable
-                GameScreen(
+                LevelsScreen(coinVm = vm, onPlay = { level -> nav.navigate(Routes.game(level)) })
+            }
+            composable(
+                Routes.GAME,
+                arguments = listOf(navArgument("level") { type = NavType.IntType })
+            ) { entry ->
+                val vm = coinVm ?: return@composable
+                val requested = entry.arguments?.getInt("level") ?: 1
+                GameHost(
+                    level = requested.coerceIn(1, vm.level.value),
                     coinVm = vm,
                     onExit = {
                         // Ignore repeat taps while the pop is in flight so one exit shows one ad.

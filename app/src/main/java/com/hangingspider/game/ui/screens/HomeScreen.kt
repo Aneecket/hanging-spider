@@ -128,7 +128,7 @@ fun HomeScreen(
 
                 Spacer(Modifier.height(14.dp))
 
-                // Wait for the profile so the first word matches the player's real level.
+                // Wait for the profile so PLAY opens the player's real unlocked level.
                 PlayButton(onClick = { if (profile != null) onPlay() })
 
                 Spacer(Modifier.height(14.dp))
@@ -348,9 +348,10 @@ private fun TitleBlock() {
 
 @Composable
 private fun LevelCard(level: Int, points: Long?) {
-    val next = Levels.pointsToUnlock(level + 1)
     val have = points ?: 0L
-    val progress = (have.toFloat() / next).coerceIn(0f, 1f)
+    val maxed = level >= Levels.MAX
+    val next = Levels.pointsToUnlock(level + 1)
+    val progress = if (maxed) 1f else (have.toFloat() / next).coerceIn(0f, 1f)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -360,13 +361,18 @@ private fun LevelCard(level: Int, points: Long?) {
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                "LEVEL $level",
-                style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 2.sp),
-                color = AppColors.GoldBright
+                "LEVEL $level · ${Levels.gameFor(level).title.uppercase()}",
+                style = MaterialTheme.typography.titleMedium.copy(letterSpacing = 1.sp),
+                color = AppColors.GoldBright,
+                maxLines = 1,
+                modifier = Modifier.weight(1f)
             )
-            Spacer(Modifier.weight(1f))
             Text(
-                if (points == null) "—" else "${formatCoins(have)} / ${formatCoins(next)} points",
+                when {
+                    points == null -> "—"
+                    maxed -> "${formatCoins(have)} points"
+                    else -> "${formatCoins(have)} / ${formatCoins(next)}"
+                },
                 style = MaterialTheme.typography.labelMedium,
                 color = AppColors.IvoryDim
             )
@@ -383,7 +389,11 @@ private fun LevelCard(level: Int, points: Long?) {
         )
         Spacer(Modifier.height(6.dp))
         Text(
-            "Reach ${formatCoins(next)} points to unlock Level ${level + 1}",
+            when {
+                maxed -> "All ${Levels.MAX} levels unlocked"
+                have >= next -> "Finish any round to unlock Level ${level + 1} · ${Levels.gameFor(level + 1).title}"
+                else -> "Reach ${formatCoins(next)} points to unlock Level ${level + 1} · ${Levels.gameFor(level + 1).title}"
+            },
             style = MaterialTheme.typography.bodySmall.copy(fontStyle = FontStyle.Italic),
             color = AppColors.MutedText
         )

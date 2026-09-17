@@ -16,8 +16,8 @@ android {
         applicationId = "com.hangingspider.game"
         minSdk = 24
         targetSdk = 36
-        versionCode = 16
-        versionName = "0.4.0"
+        versionCode = 19
+        versionName = "0.5.0"
         vectorDrawables { useSupportLibrary = true }
     }
 
@@ -102,6 +102,8 @@ dependencies {
 
     // AdMob
     implementation("com.google.android.gms:play-services-ads:23.3.0")
+
+    testImplementation("junit:junit:4.13.2")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

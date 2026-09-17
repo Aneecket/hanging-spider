@@ -49,11 +49,7 @@ class CoinViewModel(
         viewModelScope.launch {
             repo.observeProfile(uid).collectLatest { p ->
                 _profile.value = p
-                if (p == null) return@collectLatest
-                // Unlocked level never drops, even when points are spent on hints.
-                val unlocked = maxOf(p.level, Levels.levelForPoints(p.coins))
-                _level.value = unlocked
-                if (unlocked > p.level) runCatching { repo.setLevel(uid, unlocked) }
+                if (p != null) _level.value = maxOf(_level.value, p.level.coerceIn(1, Levels.MAX))
             }
         }
     }
@@ -110,12 +106,18 @@ class CoinViewModel(
         return true
     }
 
+    /** Records the round, then unlocks at most one new level if the points target is met. */
     fun onGameFinished(won: Boolean) {
         viewModelScope.launch {
             val base = if (won) WIN_REWARD else 0L
             val mult = if (isDoublerActive()) 2 else 1
-            repo.recordGameResult(uid, won, base * mult)
+            val points = runCatching { repo.recordGameResult(uid, won, base * mult) }.getOrNull()
             _events.value = CoinEvent.GameResult(won, base * mult)
+            val current = _level.value
+            val next = current + 1
+            if (points != null && next <= Levels.MAX && points >= Levels.pointsToUnlock(next)) {
+                runCatching { repo.setLevel(uid, next) }.onSuccess { _level.value = maxOf(_level.value, next) }
+            }
         }
     }
 

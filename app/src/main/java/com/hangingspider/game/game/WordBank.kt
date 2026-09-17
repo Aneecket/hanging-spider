@@ -1522,11 +1522,11 @@ object WordBank {
      * returned. Prevents the "half an hour in, same words keep coming back"
      * pattern that lets players win every round from memory.
      */
-    fun random(level: Int = 1): Word {
-        val lengths = Levels.wordLengths(level)
-        val pool = words.filter { it.text.length in lengths }.ifEmpty { words }
-        val available = pool.filter { it.text !in recent }
-            .ifEmpty { pool }
+    val all: List<Word> get() = words
+
+    fun random(): Word {
+        val available = words.filter { it.text !in recent }
+            .ifEmpty { words } // pool exhausted (shouldn't happen at this size) — fall back
         val chosen = available.random()
         recent.addLast(chosen.text)
         while (recent.size > RECENT_COOLDOWN) recent.removeFirst()

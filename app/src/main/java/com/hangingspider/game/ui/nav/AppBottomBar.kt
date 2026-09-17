@@ -20,6 +20,7 @@ data class BottomTab(val route: String, val label: String, val glyph: String)
 
 private val Tabs = listOf(
     BottomTab(Routes.HOME, "Home", "◆"),
+    BottomTab(Routes.LEVELS, "Levels", "▦"),
     BottomTab(Routes.LEADERBOARD, "Leaders", "♛"),
     BottomTab(Routes.MESSAGES, "Missives", "✉")
 )
